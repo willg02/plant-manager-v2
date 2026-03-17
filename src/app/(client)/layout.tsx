@@ -1,14 +1,17 @@
 "use client";
 
 import { Show, SignInButton, UserButton } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
-import { Leaf, MessageCircle, Store, Search } from "lucide-react";
+import { Leaf, MessageCircle, Store, Search, Settings } from "lucide-react";
 
 export default function ClientLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user } = useUser();
+  const isAdmin = (user?.publicMetadata as { role?: string })?.role === "admin";
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-green-700 text-white shadow-md">
@@ -43,6 +46,15 @@ export default function ClientLayout({
                 <MessageCircle className="h-4 w-4" />
                 Chat
               </Link>
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-1.5 rounded-md border border-green-500 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-green-600"
+                >
+                  <Settings className="h-4 w-4" />
+                  Admin
+                </Link>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3">
