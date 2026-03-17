@@ -9,6 +9,7 @@ import {
   Store,
   Upload,
   MapPin,
+  Users,
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/admin/suppliers", label: "Suppliers", icon: Store },
   { href: "/admin/upload", label: "Upload", icon: Upload },
   { href: "/admin/regions", label: "Regions", icon: MapPin },
+  { href: "/admin/users", label: "Users", icon: Users },
 ];
 
 export default function AdminLayout({
