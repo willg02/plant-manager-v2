@@ -15,6 +15,7 @@ import {
 import { Plus } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { populatePlantBatch } from "@/lib/ai/populate-plant";
 
 async function deletePlant(formData: FormData) {
   "use server";
@@ -33,13 +34,7 @@ async function populateAll() {
   if (pending.length === 0) return;
 
   const plantIds = pending.map((p) => p.id);
-  // Fire off batch populate via internal API
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  await fetch(`${baseUrl}/api/ai/populate-batch`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ plantIds }),
-  });
+  await populatePlantBatch(plantIds);
 
   revalidatePath("/admin/plants");
   redirect("/admin/plants");

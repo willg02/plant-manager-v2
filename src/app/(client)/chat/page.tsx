@@ -3,11 +3,24 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, Leaf } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Send, Loader2, Leaf, MapPin } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+}
+
+interface Region {
+  id: string;
+  name: string;
+  state: string | null;
 }
 
 export default function ChatPage() {
@@ -15,8 +28,24 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [regionId, setRegionId] = useState<string | undefined>(undefined);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [regionsLoading, setRegionsLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Fetch available regions on mount
+  useEffect(() => {
+    fetch("/api/regions")
+      .then((res) => res.json())
+      .then((data: Region[]) => {
+        setRegions(data);
+        // Auto-select if there's only one region
+        if (data.length === 1) setRegionId(data[0].id);
+      })
+      .catch(console.error)
+      .finally(() => setRegionsLoading(false));
+  }, []);
+
+  // Auto-scroll to latest message
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -26,7 +55,7 @@ export default function ChatPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || !regionId) return;
 
     const userMessage: Message = { role: "user", content: trimmed };
     const updatedMessages = [...messages, userMessage];
@@ -38,15 +67,10 @@ export default function ChatPage() {
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: updatedMessages,
-          regionId,
-        }),
+        body: JSON.stringify({ messages: updatedMessages, regionId }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get response");
-      }
+      if (!response.ok) throw new Error("Failed to get response");
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -58,8 +82,7 @@ export default function ChatPage() {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          assistantContent += chunk;
+          assistantContent += decoder.decode(value, { stream: true });
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {
@@ -75,8 +98,7 @@ export default function ChatPage() {
         ...prev,
         {
           role: "assistant",
-          content:
-            "Sorry, I encountered an error. Please try again.",
+          content: "Sorry, I encountered an error. Please try again.",
         },
       ]);
     } finally {
@@ -84,13 +106,42 @@ export default function ChatPage() {
     }
   }
 
+  const selectedRegion = regions.find((r) => r.id === regionId);
+
   return (
     <div className="mx-auto flex h-[calc(100vh-64px)] max-w-3xl flex-col px-4 py-4">
-      {/* Region Note */}
-      <div className="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-800">
-        <Leaf className="mr-1 inline h-4 w-4" />
-        Select your region to get local plant recommendations. Region selection
-        coming soon.
+      {/* Region Selector */}
+      <div className="mb-4 flex items-center gap-3 rounded-lg bg-green-50 px-4 py-2.5">
+        <MapPin className="h-4 w-4 shrink-0 text-green-700" />
+        <span className="text-sm font-medium text-green-800">Region:</span>
+
+        {regionsLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-green-600" />
+        ) : regions.length === 0 ? (
+          <span className="text-sm italic text-green-700">
+            No regions set up yet — ask an admin to add one.
+          </span>
+        ) : (
+          <Select value={regionId} onValueChange={setRegionId}>
+            <SelectTrigger className="h-8 w-52 border-green-200 bg-white text-sm focus:ring-green-500">
+              <SelectValue placeholder="Select your region…" />
+            </SelectTrigger>
+            <SelectContent>
+              {regions.map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  {r.name}
+                  {r.state ? `, ${r.state}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {selectedRegion && (
+          <span className="ml-auto text-xs text-green-600">
+            Showing plants available in {selectedRegion.name}
+          </span>
+        )}
       </div>
 
       {/* Messages */}
@@ -103,7 +154,9 @@ export default function ChatPage() {
             <Leaf className="mb-3 h-10 w-10" />
             <p className="text-lg font-medium">Plant Chat</p>
             <p className="mt-1 text-sm">
-              Ask me anything about plants, gardening, or local availability.
+              {regionId
+                ? "Ask me anything about plants, gardening, or local availability."
+                : "Select your region above to get started."}
             </p>
           </div>
         )}
@@ -139,9 +192,10 @@ export default function ChatPage() {
         <Textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about plants..."
+          placeholder={regionId ? "Ask about plants…" : "Select a region first…"}
           className="min-h-[44px] resize-none"
           rows={1}
+          disabled={!regionId}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -151,7 +205,7 @@ export default function ChatPage() {
         />
         <Button
           type="submit"
-          disabled={isLoading || !input.trim()}
+          disabled={isLoading || !input.trim() || !regionId}
           className="bg-green-700 text-white hover:bg-green-600"
         >
           <Send className="h-4 w-4" />
