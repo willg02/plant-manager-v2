@@ -122,7 +122,7 @@ export default function ChatPage() {
             No regions set up yet — ask an admin to add one.
           </span>
         ) : (
-          <Select value={regionId} onValueChange={setRegionId}>
+          <Select value={regionId} onValueChange={(v) => setRegionId(v ?? undefined)}>
             <SelectTrigger className="h-8 w-52 border-green-200 bg-white text-sm focus:ring-green-500">
               <SelectValue placeholder="Select your region…" />
             </SelectTrigger>
