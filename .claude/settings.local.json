@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npx --version)",
+      "WebSearch",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --yes)",
+      "Bash(npx create-next-app@latest plant-manager --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --yes)",
+      "Bash(shopt -s dotglob)",
+      "Bash(mv plant-manager/* .)",
+      "Bash(mv plant-manager/.* .)",
+      "Bash(rmdir plant-manager:*)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest init -d --yes)"
+    ]
+  }
+}
