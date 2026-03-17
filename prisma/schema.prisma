@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── REGION ────────────────────────────────────────────
+model Region {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  state       String?
+  description String?  @db.Text
+  climateZone String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  suppliers    Supplier[]
+  availability PlantAvailability[]
+  chatSessions ChatSession[]
+}
+
+// ─── SUPPLIER ──────────────────────────────────────────
+model Supplier {
+  id       String  @id @default(cuid())
+  name     String
+  regionId String
+  region   Region  @relation(fields: [regionId], references: [id])
+  address  String?
+  city     String?
+  state    String?
+  zip      String?
+  phone    String?
+  email    String?
+  website  String?
+  notes    String? @db.Text
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  availability PlantAvailability[]
+
+  @@index([regionId])
+}
+
+// ─── PLANT ─────────────────────────────────────────────
+model Plant {
+  id         String @id @default(cuid())
+  commonName String
+
+  // AI-populated fields
+  botanicalName   String?
+  alternateNames  String[]  @default([])
+  plantType       String?
+  family          String?
+  hardinessZoneMin String?
+  hardinessZoneMax String?
+  sunRequirement  String?
+  waterNeeds      String?
+  soilPreference  String?  @db.Text
+  matureHeight    String?
+  matureWidth     String?
+  growthRate      String?
+  bloomTime       String?
+  bloomColor      String?
+  foliageColor    String?
+  nativeRegion    String?  @db.Text
+  description     String?  @db.Text
+  careTips        String?  @db.Text
+  companionPlants String[] @default([])
+  imageUrl        String?
+
+  // AI metadata
+  aiPopulated   Boolean   @default(false)
+  aiPopulatedAt DateTime?
+  aiModel       String?
+  aiConfidence  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  availability PlantAvailability[]
+
+  @@index([commonName])
+  @@index([botanicalName])
+  @@index([plantType])
+  @@index([sunRequirement])
+  @@index([waterNeeds])
+}
+
+// ─── PLANT AVAILABILITY ────────────────────────────────
+model PlantAvailability {
+  id         String @id @default(cuid())
+  plantId    String
+  plant      Plant  @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  regionId   String
+  region     Region @relation(fields: [regionId], references: [id])
+
+  price      Decimal? @db.Decimal(10, 2)
+  size       String?
+  inStock    Boolean  @default(true)
+  stockNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([plantId, supplierId, size])
+  @@index([plantId])
+  @@index([supplierId])
+  @@index([regionId])
+}
+
+// ─── UPLOAD LOG ────────────────────────────────────────
+model UploadLog {
+  id           String    @id @default(cuid())
+  fileName     String
+  supplierId   String?
+  regionId     String?
+  rowCount     Int
+  successCount Int       @default(0)
+  errorCount   Int       @default(0)
+  errors       Json?
+  status       String    @default("pending")
+  uploadedBy   String
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+}
+
+// ─── CHAT ──────────────────────────────────────────────
+model ChatSession {
+  id       String  @id @default(cuid())
+  userId   String?
+  regionId String?
+  region   Region? @relation(fields: [regionId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages ChatMessage[]
+
+  @@index([userId])
+}
+
+model ChatMessage {
+  id             String      @id @default(cuid())
+  sessionId      String
+  session        ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role           String
+  content        String      @db.Text
+  sourcePlantIds String[]    @default([])
+  createdAt      DateTime    @default(now())
+
+  @@index([sessionId])
+}

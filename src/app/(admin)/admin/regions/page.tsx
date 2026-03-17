@@ -1,0 +1,97 @@
+export const dynamic = "force-dynamic";
+
+import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { Plus } from "lucide-react";
+import { revalidatePath } from "next/cache";
+
+async function deleteRegion(formData: FormData) {
+  "use server";
+  const regionId = formData.get("regionId") as string;
+  if (!regionId) return;
+  await prisma.region.delete({ where: { id: regionId } });
+  revalidatePath("/admin/regions");
+}
+
+export default async function AdminRegionsPage() {
+  const regions = await prisma.region.findMany({
+    orderBy: { name: "asc" },
+    include: {
+      _count: { select: { suppliers: true } },
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Regions</h2>
+        <Link href="/admin/regions/new">
+          <Button>
+            <Plus className="size-4" />
+            Add Region
+          </Button>
+        </Link>
+      </div>
+
+      <div className="rounded-lg border bg-white">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>State</TableHead>
+              <TableHead>Climate Zone</TableHead>
+              <TableHead>Supplier Count</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {regions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  No regions found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              regions.map((region) => (
+                <TableRow key={region.id}>
+                  <TableCell className="font-medium">{region.name}</TableCell>
+                  <TableCell>{region.state || "\u2014"}</TableCell>
+                  <TableCell>{region.climateZone || "\u2014"}</TableCell>
+                  <TableCell>{region._count.suppliers}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Link href={`/admin/regions/${region.id}/edit`}>
+                        <Button variant="outline" size="sm">
+                          Edit
+                        </Button>
+                      </Link>
+                      <form action={deleteRegion}>
+                        <input
+                          type="hidden"
+                          name="regionId"
+                          value={region.id}
+                        />
+                        <Button variant="destructive" size="sm" type="submit">
+                          Delete
+                        </Button>
+                      </form>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}

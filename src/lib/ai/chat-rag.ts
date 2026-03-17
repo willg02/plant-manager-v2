@@ -1,0 +1,161 @@
+import { prisma } from "@/lib/prisma";
+import { claude } from "@/lib/claude";
+import { buildChatSystemPrompt } from "./prompts";
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+function formatPlantContext(
+  plants: Array<{
+    id: string;
+    commonName: string;
+    botanicalName: string | null;
+    plantType: string | null;
+    sunRequirement: string | null;
+    waterNeeds: string | null;
+    hardinessZoneMin: string | null;
+    hardinessZoneMax: string | null;
+    matureHeight: string | null;
+    matureWidth: string | null;
+    bloomTime: string | null;
+    bloomColor: string | null;
+    description: string | null;
+    careTips: string | null;
+    availability: Array<{
+      price: unknown;
+      size: string | null;
+      inStock: boolean;
+      supplier: { name: string };
+    }>;
+  }>
+): string {
+  if (plants.length === 0) return "No plants currently available in this region.";
+
+  return plants
+    .map((p) => {
+      const avail = p.availability
+        .filter((a) => a.inStock)
+        .map(
+          (a) =>
+            `${a.supplier.name}${a.size ? ` (${a.size})` : ""}${a.price ? ` - $${a.price}` : ""}`
+        )
+        .join("; ");
+
+      return `- ${p.commonName}${p.botanicalName ? ` (${p.botanicalName})` : ""}
+  Type: ${p.plantType || "N/A"} | Sun: ${p.sunRequirement || "N/A"} | Water: ${p.waterNeeds || "N/A"}
+  Zones: ${p.hardinessZoneMin || "?"}–${p.hardinessZoneMax || "?"} | Size: ${p.matureHeight || "N/A"} H × ${p.matureWidth || "N/A"} W
+  Bloom: ${p.bloomTime || "N/A"} (${p.bloomColor || "N/A"})
+  ${p.description || ""}
+  Available from: ${avail || "Currently out of stock"}`;
+    })
+    .join("\n\n");
+}
+
+export async function retrievePlantContext(
+  regionId: string,
+  userMessage: string
+): Promise<string> {
+  // Search for relevant plants in this region
+  const searchTerms = userMessage
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .split(/\s+/)
+    .filter((term) => term.length > 2);
+
+  // Build search conditions
+  const whereConditions = [];
+
+  for (const term of searchTerms.slice(0, 5)) {
+    whereConditions.push(
+      { commonName: { contains: term, mode: "insensitive" as const } },
+      { botanicalName: { contains: term, mode: "insensitive" as const } },
+      { plantType: { contains: term, mode: "insensitive" as const } },
+      { sunRequirement: { contains: term, mode: "insensitive" as const } },
+      { description: { contains: term, mode: "insensitive" as const } }
+    );
+  }
+
+  const plants = await prisma.plant.findMany({
+    where: {
+      availability: { some: { regionId } },
+      ...(whereConditions.length > 0 ? { OR: whereConditions } : {}),
+    },
+    include: {
+      availability: {
+        where: { regionId },
+        include: { supplier: { select: { name: true } } },
+      },
+    },
+    take: 20,
+  });
+
+  // If keyword search returned few results, also get some general plants
+  if (plants.length < 5) {
+    const generalPlants = await prisma.plant.findMany({
+      where: {
+        availability: { some: { regionId } },
+        id: { notIn: plants.map((p) => p.id) },
+      },
+      include: {
+        availability: {
+          where: { regionId },
+          include: { supplier: { select: { name: true } } },
+        },
+      },
+      take: 20 - plants.length,
+    });
+    plants.push(...generalPlants);
+  }
+
+  return formatPlantContext(plants);
+}
+
+export async function streamChat(
+  regionId: string,
+  messages: ChatMessage[]
+): Promise<ReadableStream<Uint8Array>> {
+  const region = await prisma.region.findUnique({
+    where: { id: regionId },
+  });
+
+  if (!region) {
+    throw new Error("Region not found");
+  }
+
+  const lastUserMessage = messages.findLast((m) => m.role === "user");
+  const plantContext = await retrievePlantContext(
+    regionId,
+    lastUserMessage?.content || ""
+  );
+
+  const systemPrompt = buildChatSystemPrompt(
+    region.name,
+    region.climateZone,
+    plantContext
+  );
+
+  const stream = await claude.messages.stream({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 1000,
+    system: systemPrompt,
+    messages: messages.slice(-20), // Keep last 10 pairs
+  });
+
+  const encoder = new TextEncoder();
+
+  return new ReadableStream({
+    async start(controller) {
+      for await (const event of stream) {
+        if (
+          event.type === "content_block_delta" &&
+          event.delta.type === "text_delta"
+        ) {
+          controller.enqueue(encoder.encode(event.delta.text));
+        }
+      }
+      controller.close();
+    },
+  });
+}

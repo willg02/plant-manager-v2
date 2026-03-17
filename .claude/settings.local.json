@@ -11,7 +11,11 @@
       "Bash(mv plant-manager/.* .)",
       "Bash(rmdir plant-manager:*)",
       "Bash(npm install:*)",
-      "Bash(npx shadcn@latest init -d --yes)"
+      "Bash(npx shadcn@latest init -d --yes)",
+      "Bash(npx prisma:*)",
+      "Bash(npx shadcn@latest add input select card dialog badge table textarea label dropdown-menu separator sheet tabs avatar scroll-area tooltip -y)",
+      "Bash(where psql:*)",
+      "Bash(pg_isready)"
     ]
   }
 }
