@@ -9,27 +9,21 @@ const isAdminApiRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  const { sessionClaims, userId } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  if (!isAdminRoute(req) && !isAdminApiRoute(req)) return;
 
-  // Auto-promote the bootstrap admin email if set via env var
-  const adminEmail = process.env.ADMIN_EMAIL;
-  if (userId && adminEmail && role !== "admin") {
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    const emails = user.emailAddresses.map((e) => e.emailAddress);
-    if (emails.includes(adminEmail)) {
-      await client.users.updateUserMetadata(userId, {
-        publicMetadata: { role: "admin" },
-      });
-      // Let the request through; the session will carry the role on next request
-    }
+  const { userId } = await auth();
+
+  if (!userId) {
+    return NextResponse.redirect(new URL("/sign-in", req.url));
   }
 
-  if (isAdminRoute(req) || isAdminApiRoute(req)) {
-    if (role !== "admin") {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
+  // Fetch live metadata — session JWT claims don't include publicMetadata by default
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  const role = user.publicMetadata?.role as string | undefined;
+
+  if (role !== "admin") {
+    return NextResponse.redirect(new URL("/", req.url));
   }
 });
 
