@@ -14,8 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Plus } from "lucide-react";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { populatePlantBatch } from "@/lib/ai/populate-plant";
+import { PopulateAllButton } from "@/components/admin/populate-all-button";
 
 async function deletePlant(formData: FormData) {
   "use server";
@@ -23,21 +22,6 @@ async function deletePlant(formData: FormData) {
   if (!plantId) return;
   await prisma.plant.delete({ where: { id: plantId } });
   revalidatePath("/admin/plants");
-}
-
-async function populateAll() {
-  "use server";
-  const pending = await prisma.plant.findMany({
-    where: { aiPopulated: false },
-    select: { id: true },
-  });
-  if (pending.length === 0) return;
-
-  const plantIds = pending.map((p) => p.id);
-  await populatePlantBatch(plantIds);
-
-  revalidatePath("/admin/plants");
-  redirect("/admin/plants");
 }
 
 export default async function AdminPlantsPage() {
@@ -51,19 +35,16 @@ export default async function AdminPlantsPage() {
     },
   });
 
-  const pendingCount = plants.filter((p) => !p.aiPopulated).length;
+  const pendingPlants = plants.filter((p) => !p.aiPopulated);
+  const pendingPlantIds = pendingPlants.map((p) => p.id);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Plants</h2>
         <div className="flex gap-2">
-          {pendingCount > 0 && (
-            <form action={populateAll}>
-              <Button variant="outline" type="submit">
-                Populate All ({pendingCount})
-              </Button>
-            </form>
+          {pendingPlantIds.length > 0 && (
+            <PopulateAllButton pendingPlantIds={pendingPlantIds} />
           )}
           <Link href="/admin/plants/new">
             <Button>
