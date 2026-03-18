@@ -19,7 +19,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { Upload, FileSpreadsheet, CheckCircle } from "lucide-react";
+import { Upload, FileSpreadsheet, FileText, CheckCircle, AlertTriangle, Trash2 } from "lucide-react";
 import Papa from "papaparse";
 
 interface Supplier {
@@ -33,6 +33,11 @@ interface Region {
 }
 
 type ParsedRow = Record<string, string>;
+
+interface PdfExtractedPlant {
+  commonName: string;
+  botanicalName?: string | null;
+}
 
 const PLANT_FIELDS = [
   { value: "", label: "-- Skip --" },
@@ -62,6 +67,18 @@ export default function UploadPage() {
   } | null>(null);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+
+  // PDF upload state
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfDragOver, setPdfDragOver] = useState(false);
+  const [pdfProcessing, setPdfProcessing] = useState(false);
+  const [pdfPlants, setPdfPlants] = useState<PdfExtractedPlant[]>([]);
+  const [pdfReviewing, setPdfReviewing] = useState(false);
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [pdfSupplierId, setPdfSupplierId] = useState("");
+  const [pdfRegionId, setPdfRegionId] = useState("");
+  const [pdfResult, setPdfResult] = useState<{ created: number; errors: number } | null>(null);
+  const [pdfError, setPdfError] = useState("");
 
   useEffect(() => {
     async function fetchData() {
@@ -233,6 +250,96 @@ export default function UploadPage() {
     } finally {
       setUploading(false);
     }
+  }
+
+  async function handlePdfProcess() {
+    if (!pdfFile || !pdfSupplierId || !pdfRegionId) return;
+
+    setPdfProcessing(true);
+    setPdfError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", pdfFile);
+      formData.append("supplierId", pdfSupplierId);
+      formData.append("regionId", pdfRegionId);
+
+      const res = await fetch("/api/upload/pdf", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "PDF processing failed");
+      }
+
+      const data = await res.json();
+      setPdfPlants(data.plants);
+      setPdfReviewing(true);
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setPdfProcessing(false);
+    }
+  }
+
+  function removePdfPlant(index: number) {
+    setPdfPlants((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updatePdfPlant(index: number, field: "commonName" | "botanicalName", value: string) {
+    setPdfPlants((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, [field]: value } : p))
+    );
+  }
+
+  async function handlePdfUpload() {
+    if (pdfPlants.length === 0) return;
+
+    setPdfUploading(true);
+    setPdfError("");
+
+    try {
+      const rows = pdfPlants
+        .filter((p) => p.commonName.trim())
+        .map((p) => ({
+          commonName: p.commonName.trim(),
+          botanicalName: p.botanicalName?.trim() || undefined,
+        }));
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          supplierId: pdfSupplierId,
+          regionId: pdfRegionId,
+          fileName: pdfFile?.name || "pdf-upload.pdf",
+          rows,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Upload failed");
+      }
+
+      const data = await res.json();
+      setPdfResult({ created: data.created, errors: data.errors });
+      setPdfReviewing(false);
+    } catch (err) {
+      setPdfError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setPdfUploading(false);
+    }
+  }
+
+  function resetPdf() {
+    setPdfFile(null);
+    setPdfPlants([]);
+    setPdfReviewing(false);
+    setPdfResult(null);
+    setPdfError("");
   }
 
   return (
@@ -508,6 +615,247 @@ export default function UploadPage() {
           </CardContent>
         </Card>
       )}
+      {/* ─── PDF Upload Section ─── */}
+      <div className="border-t pt-8 mt-8">
+        <h2 className="text-2xl font-bold mb-1">PDF Upload</h2>
+        <div className="flex items-start gap-2 mb-6 rounded-lg bg-amber-50 border border-amber-200 p-3">
+          <AlertTriangle className="size-5 text-amber-600 mt-0.5 shrink-0" />
+          <div className="text-sm text-amber-800">
+            <p className="font-medium">Experimental — Results may vary</p>
+            <p className="mt-1">
+              PDF files don&apos;t have a standard structure, so AI is used to interpret
+              the document and extract plant names. Accuracy depends on the PDF&apos;s
+              formatting and quality. Always review the extracted list before uploading.
+            </p>
+          </div>
+        </div>
+
+        {pdfError && (
+          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 mb-4">
+            {pdfError}
+          </div>
+        )}
+
+        {pdfResult ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="size-6" />
+                PDF Upload Complete
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-lg border p-4">
+                  <p className="text-2xl font-bold text-green-600">
+                    {pdfResult.created}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Plants created</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-2xl font-bold text-red-600">
+                    {pdfResult.errors}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Errors</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => router.push("/admin/plants")}>
+                  View Plants
+                </Button>
+                <Button variant="outline" onClick={resetPdf}>
+                  Upload Another PDF
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : pdfReviewing ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Review Extracted Plants</CardTitle>
+              <CardDescription>
+                The AI found {pdfPlants.length} plants. Review, edit, or remove
+                entries before uploading. Names can be edited inline.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border max-h-96 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">#</TableHead>
+                      <TableHead>Common Name</TableHead>
+                      <TableHead>Botanical Name</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pdfPlants.map((plant, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-muted-foreground text-xs">
+                          {i + 1}
+                        </TableCell>
+                        <TableCell>
+                          <input
+                            type="text"
+                            value={plant.commonName}
+                            onChange={(e) =>
+                              updatePdfPlant(i, "commonName", e.target.value)
+                            }
+                            className="w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-green-500 focus:outline-none text-sm py-0.5"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <input
+                            type="text"
+                            value={plant.botanicalName || ""}
+                            onChange={(e) =>
+                              updatePdfPlant(i, "botanicalName", e.target.value)
+                            }
+                            className="w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-green-500 focus:outline-none text-sm py-0.5 text-muted-foreground"
+                            placeholder="—"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            onClick={() => removePdfPlant(i)}
+                            className="text-red-400 hover:text-red-600"
+                            title="Remove"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                {pdfPlants.length} plants to upload
+              </p>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handlePdfUpload}
+                  disabled={pdfUploading || pdfPlants.length === 0}
+                >
+                  {pdfUploading
+                    ? "Uploading..."
+                    : `Upload ${pdfPlants.length} Plants`}
+                </Button>
+                <Button variant="outline" onClick={resetPdf}>
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pdfSupplierId">Supplier</Label>
+                  <select
+                    id="pdfSupplierId"
+                    value={pdfSupplierId}
+                    onChange={(e) => setPdfSupplierId(e.target.value)}
+                    className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  >
+                    <option value="">Select supplier...</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pdfRegionId">Region</Label>
+                  <select
+                    id="pdfRegionId"
+                    value={pdfRegionId}
+                    onChange={(e) => setPdfRegionId(e.target.value)}
+                    className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  >
+                    <option value="">Select region...</option>
+                    {regions.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setPdfDragOver(true);
+                }}
+                onDragLeave={() => setPdfDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setPdfDragOver(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.name.toLowerCase().endsWith(".pdf")) {
+                    setPdfFile(file);
+                    setPdfError("");
+                  } else {
+                    setPdfError("Please upload a PDF file.");
+                  }
+                }}
+                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors ${
+                  pdfDragOver
+                    ? "border-amber-500 bg-amber-50"
+                    : "border-gray-300 bg-gray-50"
+                }`}
+              >
+                {pdfFile ? (
+                  <div className="flex items-center gap-2">
+                    <FileText className="size-8 text-amber-600" />
+                    <div>
+                      <p className="font-medium">{pdfFile.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {(pdfFile.size / 1024).toFixed(0)} KB
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <FileText className="mb-2 size-10 text-gray-400" />
+                    <p className="mb-1 text-sm font-medium">
+                      Drop a PDF here or click to browse
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Nursery availability lists, catalogs, etc.
+                    </p>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setPdfFile(file);
+                      setPdfError("");
+                    }
+                  }}
+                  className="mt-3"
+                />
+              </div>
+
+              <Button
+                onClick={handlePdfProcess}
+                disabled={!pdfFile || !pdfSupplierId || !pdfRegionId || pdfProcessing}
+              >
+                {pdfProcessing ? "AI is reading the PDF..." : "Extract Plants from PDF"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
