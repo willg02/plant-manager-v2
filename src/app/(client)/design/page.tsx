@@ -213,6 +213,43 @@ function MessageContent({ content }: { content: string }) {
   );
 }
 
+// ─── Image Compression ───────────────────────────────────────────────────────
+
+function compressImage(
+  file: File,
+  maxWidth = 1024,
+  quality = 0.8
+): Promise<{ base64: string; mediaType: string; preview: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas not available"));
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(objectUrl);
+
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      const base64 = dataUrl.split(",")[1];
+      resolve({ base64, mediaType: "image/jpeg", preview: dataUrl });
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Failed to load image"));
+    };
+
+    img.src = objectUrl;
+  });
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DesignPage() {
@@ -249,19 +286,16 @@ export default function DesignPage() {
     }
   }, [messages]);
 
-  function handleImageChange(e: ChangeEvent<HTMLInputElement>) {
+  async function handleImageChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const [header, base64] = dataUrl.split(",");
-      const mediaType =
-        header.match(/data:(.*);base64/)?.[1] ?? "image/jpeg";
-      setPendingImage({ base64, mediaType, preview: dataUrl });
-    };
-    reader.readAsDataURL(file);
     e.target.value = "";
+    try {
+      const compressed = await compressImage(file);
+      setPendingImage(compressed);
+    } catch {
+      console.error("Image compression failed");
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
