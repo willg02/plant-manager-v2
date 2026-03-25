@@ -157,13 +157,13 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
       {/* Header */}
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground" style={{ fontFamily: "var(--font-display)" }}>
             Browse Plants
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             {total.toLocaleString()} plant{total !== 1 ? "s" : ""} available
             {activeFilterCount > 0 && (
-              <span className="ml-2 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+              <span className="ml-2 inline-flex items-center rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-[color:var(--zen-accent)]">
                 {activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""} active
               </span>
             )}
@@ -172,7 +172,7 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
         {activeFilterCount > 0 && (
           <Link
             href="/plants"
-            className="text-sm font-medium text-gray-500 underline-offset-2 hover:text-gray-900 hover:underline"
+            className="text-sm font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
           >
             Clear all filters
           </Link>
@@ -190,27 +190,23 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
         {params.inStock    && <input type="hidden" name="inStock"    value={params.inStock} />}
         {params.sort       && <input type="hidden" name="sort"       value={params.sort} />}
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             name="search"
             defaultValue={params.search}
             placeholder="Search by common or botanical name..."
-            className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-11 pr-4 text-sm shadow-sm transition-all placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="h-11 w-full rounded-xl border border-border bg-card pl-11 pr-4 text-sm text-foreground shadow-sm transition-all placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
       </form>
 
       {/* ── Filter panel ── */}
-      <div className="mb-8 space-y-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="mb-8 space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm">
 
         {/* Plant type */}
         <FilterRow label="Type" icon={<Leaf className="h-3.5 w-3.5" />}>
-          <Chip
-            label="All"
-            active={!params.type}
-            href={filterUrl("type", undefined)}
-          />
+          <Chip label="All" active={!params.type} href={filterUrl("type", undefined)} />
           {PLANT_TYPES.map((t) => (
             <Chip
               key={t}
@@ -224,11 +220,7 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
         {/* Supplier */}
         {suppliers.length > 0 && (
           <FilterRow label="Supplier" icon={<Store className="h-3.5 w-3.5" />}>
-            <Chip
-              label="All Suppliers"
-              active={!params.supplierId}
-              href={filterUrl("supplierId", undefined)}
-            />
+            <Chip label="All Suppliers" active={!params.supplierId} href={filterUrl("supplierId", undefined)} />
             {suppliers.map((s) => (
               <Chip
                 key={s.id}
@@ -245,66 +237,43 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
         {/* Sun */}
         <FilterRow label="Sun" icon={<Sun className="h-3.5 w-3.5 text-amber-500" />}>
           {SUN_OPTIONS.map((opt) => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={params.sun === opt}
-              href={filterUrl("sun", params.sun === opt ? undefined : opt)}
-              color="sun"
-            />
+            <Chip key={opt} label={opt} active={params.sun === opt} href={filterUrl("sun", params.sun === opt ? undefined : opt)} color="sun" />
           ))}
         </FilterRow>
 
         {/* Water */}
         <FilterRow label="Water" icon={<Droplets className="h-3.5 w-3.5 text-blue-500" />}>
           {WATER_OPTIONS.map((opt) => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={params.water === opt}
-              href={filterUrl("water", params.water === opt ? undefined : opt)}
-              color="water"
-            />
+            <Chip key={opt} label={opt} active={params.water === opt} href={filterUrl("water", params.water === opt ? undefined : opt)} color="water" />
           ))}
         </FilterRow>
 
         {/* Growth Rate */}
         <FilterRow label="Growth" icon={<Gauge className="h-3.5 w-3.5 text-violet-500" />}>
           {GROWTH_RATE_OPTIONS.map((opt) => (
-            <Chip
-              key={opt}
-              label={opt}
-              active={params.growthRate === opt}
-              href={filterUrl("growthRate", params.growthRate === opt ? undefined : opt)}
-              color="growth"
-            />
+            <Chip key={opt} label={opt} active={params.growthRate === opt} href={filterUrl("growthRate", params.growthRate === opt ? undefined : opt)} color="growth" />
           ))}
         </FilterRow>
 
-        {/* Sort + In Stock — same row */}
+        {/* Sort + In Stock */}
         <div className="flex flex-wrap items-center gap-3 pt-1">
-          {/* Sort */}
           <FilterRow label="Sort" icon={<ArrowUpDown className="h-3.5 w-3.5" />} inline>
             {SORT_OPTIONS.map((opt) => (
               <Chip
                 key={opt.value}
                 label={opt.label}
-                active={
-                  params.sort === opt.value ||
-                  (!params.sort && opt.value === "name_asc")
-                }
+                active={params.sort === opt.value || (!params.sort && opt.value === "name_asc")}
                 href={filterUrl("sort", params.sort === opt.value ? undefined : opt.value)}
               />
             ))}
           </FilterRow>
 
-          {/* In Stock toggle */}
           <Link
             href={filterUrl("inStock", params.inStock === "1" ? undefined : "1")}
             className={`ml-auto flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all ${
               params.inStock === "1"
-                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50"
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:bg-muted"
             }`}
           >
             <PackageCheck className="h-3.5 w-3.5" />
@@ -315,16 +284,11 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
 
       {/* Plant grid */}
       {plants.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20">
-          <Leaf className="mb-4 h-12 w-12 text-gray-200" />
-          <h2 className="text-lg font-semibold text-gray-500">No plants found</h2>
-          <p className="mt-1 text-sm text-gray-400">
-            Try adjusting your search or filters.
-          </p>
-          <Link
-            href="/plants"
-            className="mt-4 text-sm font-medium text-emerald-600 hover:text-emerald-700"
-          >
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card py-20">
+          <Leaf className="mb-4 h-12 w-12 text-muted-foreground/20" />
+          <h2 className="text-lg font-semibold text-muted-foreground">No plants found</h2>
+          <p className="mt-1 text-sm text-muted-foreground/70">Try adjusting your search or filters.</p>
+          <Link href="/plants" className="mt-4 text-sm font-medium text-primary hover:opacity-80">
             Clear all filters
           </Link>
         </div>
@@ -333,19 +297,17 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
           {plants.map((plant) => {
             const typeColor =
               TYPE_COLORS[plant.plantType || ""] ||
-              "bg-gray-100 text-gray-600 border-gray-200";
+              "bg-muted text-muted-foreground border-border";
             const typeIcon = TYPE_ICONS[plant.plantType || ""];
             const inStockCount = plant.availability.filter((a) => a.inStock).length;
 
             return (
               <Link key={plant.id} href={`/plants/${plant.id}`}>
-                <div className="group relative flex h-full flex-col rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-gray-200 hover:shadow-md">
+                <div className="group relative flex h-full flex-col rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
                   {/* Type badge */}
                   {plant.plantType && (
                     <div className="mb-3">
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${typeColor}`}
-                      >
+                      <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${typeColor}`}>
                         {typeIcon}
                         {plant.plantType}
                       </span>
@@ -353,17 +315,17 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
                   )}
 
                   {/* Name */}
-                  <h3 className="text-sm font-semibold text-gray-900 group-hover:text-emerald-700">
+                  <h3 className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
                     {plant.commonName}
                   </h3>
                   {plant.botanicalName && (
-                    <p className="mt-0.5 text-xs italic text-gray-400">
+                    <p className="mt-0.5 text-xs italic text-muted-foreground">
                       {plant.botanicalName}
                     </p>
                   )}
 
                   {/* Quick details */}
-                  <div className="mt-auto flex flex-wrap gap-x-3 gap-y-1 pt-4 text-xs text-gray-400">
+                  <div className="mt-auto flex flex-wrap gap-x-3 gap-y-1 pt-4 text-xs text-muted-foreground">
                     {plant.sunRequirement && (
                       <span className="flex items-center gap-1">
                         <Sun className="h-3 w-3 text-amber-400" />
@@ -386,18 +348,14 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
 
                   {/* Supplier / stock footer */}
                   {plant.availability.length > 0 && (
-                    <div className="mt-3 flex items-center gap-2 border-t border-gray-50 pt-3">
-                      <Badge
-                        variant="secondary"
-                        className="bg-emerald-50 text-emerald-600 text-xs"
-                      >
-                        {plant.availability.length} supplier
-                        {plant.availability.length !== 1 ? "s" : ""}
+                    <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+                      <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
+                        {plant.availability.length} supplier{plant.availability.length !== 1 ? "s" : ""}
                       </Badge>
                       {inStockCount > 0 ? (
-                        <span className="ml-auto text-xs text-emerald-500">✓ In Stock</span>
+                        <span className="ml-auto text-xs text-primary">✓ In Stock</span>
                       ) : (
-                        <span className="ml-auto text-xs text-gray-300">Out of Stock</span>
+                        <span className="ml-auto text-xs text-muted-foreground/50">Out of Stock</span>
                       )}
                     </div>
                   )}
@@ -414,7 +372,7 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
           {page > 1 && (
             <Link
               href={{ query: { ...params, page: String(page - 1) } }}
-              className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50"
+              className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted"
             >
               Previous
             </Link>
@@ -422,18 +380,18 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
               let pageNum: number;
-              if (totalPages <= 7)          pageNum = i + 1;
-              else if (page <= 4)           pageNum = i + 1;
+              if (totalPages <= 7)             pageNum = i + 1;
+              else if (page <= 4)              pageNum = i + 1;
               else if (page >= totalPages - 3) pageNum = totalPages - 6 + i;
-              else                          pageNum = page - 3 + i;
+              else                             pageNum = page - 3 + i;
               return (
                 <Link
                   key={pageNum}
                   href={{ query: { ...params, page: String(pageNum) } }}
                   className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-medium transition-all ${
                     pageNum === page
-                      ? "bg-gray-900 text-white"
-                      : "text-gray-600 hover:bg-gray-100"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   {pageNum}
@@ -444,7 +402,7 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
           {page < totalPages && (
             <Link
               href={{ query: { ...params, page: String(page + 1) } }}
-              className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50"
+              className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted"
             >
               Next
             </Link>
@@ -470,7 +428,7 @@ function FilterRow({
 }) {
   return (
     <div className={`flex ${inline ? "items-center" : "items-start"} gap-3`}>
-      <span className="flex w-20 shrink-0 items-center gap-1.5 pt-1 text-xs font-medium text-gray-400">
+      <span className="flex w-20 shrink-0 items-center gap-1.5 pt-1 text-xs font-medium text-muted-foreground">
         {icon}
         {label}
       </span>
@@ -493,14 +451,13 @@ function Chip({
   color?: "sun" | "water" | "supplier" | "growth";
 }) {
   const activeStyles: Record<string, string> = {
-    sun:      "border-amber-300  bg-amber-50   text-amber-700",
-    water:    "border-blue-300   bg-blue-50    text-blue-700",
-    supplier: "border-violet-300 bg-violet-50  text-violet-700",
-    growth:   "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700",
-    default:  "border-gray-900   bg-gray-900   text-white",
+    sun:      "border-amber-400/50  bg-amber-500/10   text-amber-600 dark:text-amber-400",
+    water:    "border-blue-400/50   bg-blue-500/10    text-blue-600 dark:text-blue-400",
+    supplier: "border-violet-400/50 bg-violet-500/10  text-violet-600 dark:text-violet-400",
+    growth:   "border-fuchsia-400/50 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400",
+    default:  "border-primary/50    bg-primary/10     text-primary",
   };
-  const inactiveStyle =
-    "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50";
+  const inactiveStyle = "border-border bg-card text-muted-foreground hover:border-primary/30 hover:bg-muted hover:text-foreground";
   const activeStyle = active
     ? (activeStyles[color ?? "default"] ?? activeStyles.default)
     : inactiveStyle;
@@ -511,9 +468,7 @@ function Chip({
       className={`flex flex-col rounded-full border px-3 py-1.5 text-xs font-medium transition-all leading-tight ${activeStyle}`}
     >
       <span>{label}</span>
-      {sublabel && (
-        <span className="text-[10px] opacity-70">{sublabel}</span>
-      )}
+      {sublabel && <span className="text-[10px] opacity-70">{sublabel}</span>}
     </Link>
   );
 }

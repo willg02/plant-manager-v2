@@ -111,16 +111,16 @@ export default function ChatPage() {
   const selectedRegion = regions.find((r) => r.id === regionId);
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-64px)] max-w-3xl flex-col px-4 py-4 sm:px-6">
+    <div className="mx-auto flex h-screen max-w-3xl flex-col px-4 py-4 sm:px-6">
       {/* Region bar */}
-      <div className="mb-4 flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm">
-        <MapPin className="h-4 w-4 shrink-0 text-emerald-500" />
-        <span className="text-sm font-medium text-gray-700">Region:</span>
+      <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm">
+        <MapPin className="h-4 w-4 shrink-0 text-[color:var(--zen-accent)]" />
+        <span className="text-sm font-medium text-foreground">Region:</span>
 
         {regionsLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         ) : regions.length === 0 ? (
-          <span className="text-sm italic text-gray-400">
+          <span className="text-sm italic text-muted-foreground">
             No regions set up yet — ask an admin to add one.
           </span>
         ) : (
@@ -128,7 +128,7 @@ export default function ChatPage() {
             value={regionId}
             onValueChange={(v) => setRegionId(v ?? undefined)}
           >
-            <SelectTrigger className="h-8 w-52 border-gray-200 bg-gray-50 text-sm focus:ring-emerald-500">
+            <SelectTrigger className="h-8 w-52 border-border bg-muted text-sm">
               <SelectValue placeholder="Select your region..." />
             </SelectTrigger>
             <SelectContent>
@@ -143,7 +143,7 @@ export default function ChatPage() {
         )}
 
         {selectedRegion && (
-          <span className="ml-auto hidden text-xs text-gray-400 sm:block">
+          <span className="ml-auto hidden text-xs text-muted-foreground sm:block">
             Showing plants in {selectedRegion.name}
           </span>
         )}
@@ -152,17 +152,18 @@ export default function ChatPage() {
       {/* Messages */}
       <div
         ref={scrollRef}
-        className="flex-1 space-y-4 overflow-y-auto rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6"
+        className="flex-1 space-y-4 overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6"
       >
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50">
-              <Sparkles className="h-7 w-7 text-emerald-500" />
+            {/* Stone lantern avatar */}
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted border border-border">
+              <Sparkles className="h-7 w-7 text-[color:var(--zen-accent)]" />
             </div>
-            <p className="mt-4 text-lg font-semibold text-gray-900">
+            <p className="mt-4 text-lg font-semibold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
               Plant Assistant
             </p>
-            <p className="mt-1 max-w-sm text-center text-sm text-gray-400">
+            <p className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
               {regionId
                 ? "Ask me about plants, get garden recommendations, or learn about care and growing conditions."
                 : "Select your region above to get started."}
@@ -180,7 +181,7 @@ export default function ChatPage() {
                       setInput(suggestion);
                       textareaRef.current?.focus();
                     }}
-                    className="rounded-full border border-gray-200 px-3.5 py-1.5 text-xs font-medium text-gray-500 transition-all hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                    className="rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/40 hover:bg-muted hover:text-foreground"
                   >
                     {suggestion}
                   </button>
@@ -196,15 +197,15 @@ export default function ChatPage() {
             className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             {message.role === "assistant" && (
-              <div className="mr-2 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50">
-                <Leaf className="h-3.5 w-3.5 text-emerald-500" />
+              <div className="mr-2 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-muted border border-border">
+                <Leaf className="h-3.5 w-3.5 text-[color:var(--zen-accent)]" />
               </div>
             )}
             <div
               className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                 message.role === "user"
-                  ? "bg-gray-900 text-white"
-                  : "bg-gray-50 text-gray-800"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-foreground"
               }`}
             >
               <p className="whitespace-pre-wrap">{message.content}</p>
@@ -214,14 +215,18 @@ export default function ChatPage() {
 
         {isLoading && messages[messages.length - 1]?.role === "user" && (
           <div className="flex justify-start">
-            <div className="mr-2 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50">
-              <Leaf className="h-3.5 w-3.5 text-emerald-500" />
+            <div className="mr-2 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-muted border border-border">
+              <Leaf className="h-3.5 w-3.5 text-[color:var(--zen-accent)]" />
             </div>
-            <div className="rounded-2xl bg-gray-50 px-4 py-3">
+            <div className="rounded-2xl bg-muted px-4 py-3">
               <div className="flex gap-1.5">
-                <div className="h-2 w-2 animate-bounce rounded-full bg-gray-300" style={{ animationDelay: "0ms" }} />
-                <div className="h-2 w-2 animate-bounce rounded-full bg-gray-300" style={{ animationDelay: "150ms" }} />
-                <div className="h-2 w-2 animate-bounce rounded-full bg-gray-300" style={{ animationDelay: "300ms" }} />
+                {[0, 150, 300].map((delay) => (
+                  <div
+                    key={delay}
+                    className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/40"
+                    style={{ animationDelay: `${delay}ms` }}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -236,14 +241,13 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => {
               setInput(e.target.value);
-              // Auto-resize
               e.target.style.height = "auto";
               e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
             }}
             placeholder={
               regionId ? "Ask about plants..." : "Select a region first..."
             }
-            className="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-12 text-sm shadow-sm transition-all placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="w-full resize-none rounded-xl border border-border bg-card px-4 py-3 pr-12 text-sm text-foreground shadow-sm transition-all placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
             rows={1}
             style={{ minHeight: "44px" }}
             disabled={!regionId}
@@ -258,7 +262,7 @@ export default function ChatPage() {
             type="submit"
             size="sm"
             disabled={isLoading || !input.trim() || !regionId}
-            className="absolute bottom-1.5 right-1.5 h-8 w-8 rounded-lg bg-gray-900 p-0 text-white hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400"
+            className="absolute bottom-1.5 right-1.5 h-8 w-8 rounded-lg bg-primary p-0 text-primary-foreground hover:opacity-90 disabled:opacity-30"
           >
             <Send className="h-3.5 w-3.5" />
           </Button>
