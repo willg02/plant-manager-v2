@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Plus } from "lucide-react";
 import { revalidatePath } from "next/cache";
+import { DeleteRegionButton } from "./delete-region-button";
 
 async function deleteRegion(formData: FormData) {
   "use server";
@@ -80,16 +81,12 @@ export default async function AdminRegionsPage() {
                           Edit
                         </Button>
                       </Link>
-                      <form action={deleteRegion}>
-                        <input
-                          type="hidden"
-                          name="regionId"
-                          value={region.id}
-                        />
-                        <Button variant="destructive" size="sm" type="submit">
-                          Delete
-                        </Button>
-                      </form>
+                      <DeleteRegionButton
+                        regionId={region.id}
+                        regionName={region.name}
+                        supplierCount={region._count.suppliers}
+                        action={deleteRegion}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
