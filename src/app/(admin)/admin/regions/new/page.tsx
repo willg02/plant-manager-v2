@@ -81,14 +81,15 @@ export default function NewRegionPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
+              <Label htmlFor="name">City / Region Name *</Label>
               <Input
                 id="name"
                 value={form.name}
                 onChange={(e) => updateField("name", e.target.value)}
-                placeholder="e.g. Pacific Northwest"
+                placeholder="e.g. Charlotte"
                 required
               />
+              <p className="text-xs text-muted-foreground">Use a city name for maximum specificity (e.g. "Charlotte", "Atlanta", "Denver")</p>
             </div>
 
             <div className="space-y-2">
@@ -97,18 +98,20 @@ export default function NewRegionPage() {
                 id="state"
                 value={form.state}
                 onChange={(e) => updateField("state", e.target.value)}
-                placeholder="e.g. Oregon"
+                placeholder="e.g. NC"
               />
+              <p className="text-xs text-muted-foreground">Shown alongside the city name (e.g. "Charlotte, NC")</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="climateZone">Climate Zone</Label>
+              <Label htmlFor="climateZone">Hardiness Zone</Label>
               <Input
                 id="climateZone"
                 value={form.climateZone}
                 onChange={(e) => updateField("climateZone", e.target.value)}
-                placeholder="e.g. 8b"
+                placeholder="e.g. 7b"
               />
+              <p className="text-xs text-muted-foreground">USDA hardiness zone — used by AI for plant recommendations</p>
             </div>
 
             <div className="space-y-2">
@@ -118,7 +121,7 @@ export default function NewRegionPage() {
                 value={form.description}
                 onChange={(e) => updateField("description", e.target.value)}
                 rows={3}
-                placeholder="Describe the region..."
+                placeholder="e.g. Piedmont region of NC, hot humid summers, mild winters, zones 7b-8a"
               />
             </div>
 

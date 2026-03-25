@@ -129,7 +129,14 @@ export default function ChatPage() {
             onValueChange={(v) => setRegionId(v ?? undefined)}
           >
             <SelectTrigger className="h-8 w-52 border-border bg-muted text-sm">
-              <SelectValue placeholder="Select your region..." />
+              <span className={!regionId ? "text-muted-foreground" : "text-foreground"}>
+                {regionId
+                  ? (() => {
+                      const r = regions.find((r) => r.id === regionId);
+                      return r ? `${r.name}${r.state ? `, ${r.state}` : ""}` : "Select your region...";
+                    })()
+                  : "Select your region..."}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {regions.map((r) => (
