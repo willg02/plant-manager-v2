@@ -10,6 +10,7 @@ import {
   Upload,
   MapPin,
   Users,
+  Search,
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/admin/plants", label: "Plants", icon: Leaf },
   { href: "/admin/suppliers", label: "Suppliers", icon: Store },
   { href: "/admin/upload", label: "Upload", icon: Upload },
+  { href: "/admin/scraper", label: "Pike Scraper", icon: Search },
   { href: "/admin/regions", label: "Regions", icon: MapPin },
   { href: "/admin/users", label: "Users", icon: Users },
 ];
