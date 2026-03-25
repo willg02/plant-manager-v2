@@ -55,32 +55,13 @@ function formatPlantContext(
 
 export async function retrievePlantContext(
   regionId: string,
-  userMessage: string
+  _userMessage: string
 ): Promise<string> {
-  // Search for relevant plants in this region
-  const searchTerms = userMessage
-    .toLowerCase()
-    .replace(/[^\w\s]/g, "")
-    .split(/\s+/)
-    .filter((term) => term.length > 2);
-
-  // Build search conditions
-  const whereConditions = [];
-
-  for (const term of searchTerms.slice(0, 5)) {
-    whereConditions.push(
-      { commonName: { contains: term, mode: "insensitive" as const } },
-      { botanicalName: { contains: term, mode: "insensitive" as const } },
-      { plantType: { contains: term, mode: "insensitive" as const } },
-      { sunRequirement: { contains: term, mode: "insensitive" as const } },
-      { description: { contains: term, mode: "insensitive" as const } }
-    );
-  }
-
+  // Load all plants in the region and let Claude handle matching.
+  // Keyword filtering caused too many misses (plurals, synonyms, botanical names).
   const plants = await prisma.plant.findMany({
     where: {
       availability: { some: { regionId } },
-      ...(whereConditions.length > 0 ? { OR: whereConditions } : {}),
     },
     include: {
       availability: {
@@ -88,26 +69,8 @@ export async function retrievePlantContext(
         include: { supplier: { select: { name: true } } },
       },
     },
-    take: 20,
+    orderBy: { commonName: "asc" },
   });
-
-  // If keyword search returned few results, also get some general plants
-  if (plants.length < 5) {
-    const generalPlants = await prisma.plant.findMany({
-      where: {
-        availability: { some: { regionId } },
-        id: { notIn: plants.map((p) => p.id) },
-      },
-      include: {
-        availability: {
-          where: { regionId },
-          include: { supplier: { select: { name: true } } },
-        },
-      },
-      take: 20 - plants.length,
-    });
-    plants.push(...generalPlants);
-  }
 
   return formatPlantContext(plants);
 }
