@@ -13,12 +13,14 @@ import {
   Settings,
   Menu,
   X,
+  Paintbrush,
 } from "lucide-react";
 
 const navLinks = [
   { href: "/plants", label: "Plants", icon: Search },
   { href: "/suppliers", label: "Suppliers", icon: Store },
   { href: "/chat", label: "Chat", icon: MessageCircle },
+  { href: "/design", label: "Design", icon: Paintbrush },
 ];
 
 export default function ClientLayout({
