@@ -12,14 +12,22 @@ import {
   Shrub,
   Sprout,
   Search,
+  Store,
+  ArrowUpDown,
+  PackageCheck,
+  Gauge,
 } from "lucide-react";
 
 interface PlantsPageProps {
   searchParams: Promise<{
     regionId?: string;
+    supplierId?: string;
     type?: string;
     sun?: string;
     water?: string;
+    growthRate?: string;
+    inStock?: string;
+    sort?: string;
     search?: string;
     page?: string;
   }>;
@@ -48,72 +56,88 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
 };
 
 const PLANT_TYPES = [
-  "Tree",
-  "Shrub",
-  "Perennial",
-  "Annual",
-  "Herb",
-  "Vine",
-  "Groundcover",
-  "Grass",
-  "Fern",
-  "Succulent",
-  "Bulb",
+  "Tree", "Shrub", "Perennial", "Annual", "Herb",
+  "Vine", "Groundcover", "Grass", "Fern", "Succulent", "Bulb",
 ];
 
 const SUN_OPTIONS = ["Full Sun", "Part Sun", "Part Shade", "Full Shade"];
 const WATER_OPTIONS = ["Low", "Moderate", "High"];
+const GROWTH_RATE_OPTIONS = ["Slow", "Moderate", "Fast"];
+
+const SORT_OPTIONS = [
+  { value: "name_asc",  label: "Name A → Z" },
+  { value: "name_desc", label: "Name Z → A" },
+  { value: "newest",    label: "Newest First" },
+];
+
+function sortToOrderBy(sort?: string) {
+  switch (sort) {
+    case "name_desc": return { commonName: "desc" as const };
+    case "newest":    return { createdAt: "desc" as const };
+    default:          return { commonName: "asc" as const };
+  }
+}
 
 export default async function PlantsPage({ searchParams }: PlantsPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1", 10);
   const pageSize = 24;
 
+  // Build Prisma where clause
   const where: Record<string, unknown> = {};
 
-  if (params.regionId) {
-    where.availability = { some: { regionId: params.regionId } };
+  const availabilityFilter: Record<string, unknown> = {};
+  if (params.regionId)   availabilityFilter.regionId   = params.regionId;
+  if (params.supplierId) availabilityFilter.supplierId = params.supplierId;
+  if (params.inStock === "1") availabilityFilter.inStock = true;
+
+  if (Object.keys(availabilityFilter).length > 0) {
+    where.availability = { some: availabilityFilter };
   }
-  if (params.type) {
-    where.plantType = params.type;
-  }
-  if (params.sun) {
-    where.sunRequirement = params.sun;
-  }
-  if (params.water) {
-    where.waterNeeds = params.water;
-  }
+
+  if (params.type)       where.plantType       = params.type;
+  if (params.sun)        where.sunRequirement  = params.sun;
+  if (params.water)      where.waterNeeds      = params.water;
+  if (params.growthRate) where.growthRate      = params.growthRate;
+
   if (params.search) {
     where.OR = [
-      { commonName: { contains: params.search, mode: "insensitive" } },
+      { commonName:    { contains: params.search, mode: "insensitive" } },
       { botanicalName: { contains: params.search, mode: "insensitive" } },
     ];
   }
 
-  const [plants, total] = await Promise.all([
+  // Fetch suppliers for the filter row (scoped to region if selected)
+  const [plants, total, suppliers] = await Promise.all([
     prisma.plant.findMany({
       where,
       include: {
-        availability: {
-          include: { supplier: true },
-        },
+        availability: { include: { supplier: true } },
       },
-      orderBy: { commonName: "asc" },
+      orderBy: sortToOrderBy(params.sort),
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
     prisma.plant.count({ where }),
+    prisma.supplier.findMany({
+      where: {
+        isActive: true,
+        ...(params.regionId ? { regionId: params.regionId } : {}),
+      },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, city: true, state: true },
+    }),
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
 
-  // Build URLs for filters
+  // Builds a URL with one param toggled, resetting to page 1
   function filterUrl(key: string, value: string | undefined) {
-    const p = { ...params, page: "1" };
-    if (value) {
-      (p as Record<string, string>)[key] = value;
+    const p = { ...params, page: "1" } as Record<string, string | undefined>;
+    if (value !== undefined) {
+      p[key] = value;
     } else {
-      delete (p as Record<string, string | undefined>)[key];
+      delete p[key];
     }
     const qs = new URLSearchParams(
       Object.entries(p).filter(([, v]) => v !== undefined) as [string, string][]
@@ -121,31 +145,50 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
     return `/plants${qs ? `?${qs}` : ""}`;
   }
 
+  // Count how many filters are active (excluding search/page)
+  const activeFilterCount = [
+    params.type, params.sun, params.water, params.growthRate,
+    params.supplierId, params.inStock, params.sort,
+  ].filter(Boolean).length;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-          Browse Plants
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {total} plant{total !== 1 ? "s" : ""} available
-        </p>
+      <div className="mb-6 flex items-end justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+            Browse Plants
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {total.toLocaleString()} plant{total !== 1 ? "s" : ""} available
+            {activeFilterCount > 0 && (
+              <span className="ml-2 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                {activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""} active
+              </span>
+            )}
+          </p>
+        </div>
+        {activeFilterCount > 0 && (
+          <Link
+            href="/plants"
+            className="text-sm font-medium text-gray-500 underline-offset-2 hover:text-gray-900 hover:underline"
+          >
+            Clear all filters
+          </Link>
+        )}
       </div>
 
       {/* Search bar */}
       <form action="/plants" method="GET" className="mb-6">
-        {/* Preserve existing filters */}
-        {params.type && (
-          <input type="hidden" name="type" value={params.type} />
-        )}
-        {params.sun && <input type="hidden" name="sun" value={params.sun} />}
-        {params.water && (
-          <input type="hidden" name="water" value={params.water} />
-        )}
-        {params.regionId && (
-          <input type="hidden" name="regionId" value={params.regionId} />
-        )}
+        {params.type       && <input type="hidden" name="type"       value={params.type} />}
+        {params.sun        && <input type="hidden" name="sun"        value={params.sun} />}
+        {params.water      && <input type="hidden" name="water"      value={params.water} />}
+        {params.growthRate && <input type="hidden" name="growthRate" value={params.growthRate} />}
+        {params.supplierId && <input type="hidden" name="supplierId" value={params.supplierId} />}
+        {params.regionId   && <input type="hidden" name="regionId"   value={params.regionId} />}
+        {params.inStock    && <input type="hidden" name="inStock"    value={params.inStock} />}
+        {params.sort       && <input type="hidden" name="sort"       value={params.sort} />}
         <div className="relative">
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
@@ -158,73 +201,115 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
         </div>
       </form>
 
-      {/* Filter chips */}
-      <div className="mb-8 space-y-3">
-        {/* Type filters */}
-        <div className="flex flex-wrap gap-2">
-          <Link
+      {/* ── Filter panel ── */}
+      <div className="mb-8 space-y-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+
+        {/* Plant type */}
+        <FilterRow label="Type" icon={<Leaf className="h-3.5 w-3.5" />}>
+          <Chip
+            label="All"
+            active={!params.type}
             href={filterUrl("type", undefined)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-              !params.type
-                ? "border-gray-900 bg-gray-900 text-white"
-                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+          />
+          {PLANT_TYPES.map((t) => (
+            <Chip
+              key={t}
+              label={t}
+              active={params.type === t}
+              href={filterUrl("type", params.type === t ? undefined : t)}
+            />
+          ))}
+        </FilterRow>
+
+        {/* Supplier */}
+        {suppliers.length > 0 && (
+          <FilterRow label="Supplier" icon={<Store className="h-3.5 w-3.5" />}>
+            <Chip
+              label="All Suppliers"
+              active={!params.supplierId}
+              href={filterUrl("supplierId", undefined)}
+            />
+            {suppliers.map((s) => (
+              <Chip
+                key={s.id}
+                label={s.name}
+                sublabel={s.city ? `${s.city}${s.state ? `, ${s.state}` : ""}` : undefined}
+                active={params.supplierId === s.id}
+                href={filterUrl("supplierId", params.supplierId === s.id ? undefined : s.id)}
+                color="supplier"
+              />
+            ))}
+          </FilterRow>
+        )}
+
+        {/* Sun */}
+        <FilterRow label="Sun" icon={<Sun className="h-3.5 w-3.5 text-amber-500" />}>
+          {SUN_OPTIONS.map((opt) => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={params.sun === opt}
+              href={filterUrl("sun", params.sun === opt ? undefined : opt)}
+              color="sun"
+            />
+          ))}
+        </FilterRow>
+
+        {/* Water */}
+        <FilterRow label="Water" icon={<Droplets className="h-3.5 w-3.5 text-blue-500" />}>
+          {WATER_OPTIONS.map((opt) => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={params.water === opt}
+              href={filterUrl("water", params.water === opt ? undefined : opt)}
+              color="water"
+            />
+          ))}
+        </FilterRow>
+
+        {/* Growth Rate */}
+        <FilterRow label="Growth" icon={<Gauge className="h-3.5 w-3.5 text-violet-500" />}>
+          {GROWTH_RATE_OPTIONS.map((opt) => (
+            <Chip
+              key={opt}
+              label={opt}
+              active={params.growthRate === opt}
+              href={filterUrl("growthRate", params.growthRate === opt ? undefined : opt)}
+              color="growth"
+            />
+          ))}
+        </FilterRow>
+
+        {/* Sort + In Stock — same row */}
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          {/* Sort */}
+          <FilterRow label="Sort" icon={<ArrowUpDown className="h-3.5 w-3.5" />} inline>
+            {SORT_OPTIONS.map((opt) => (
+              <Chip
+                key={opt.value}
+                label={opt.label}
+                active={
+                  params.sort === opt.value ||
+                  (!params.sort && opt.value === "name_asc")
+                }
+                href={filterUrl("sort", params.sort === opt.value ? undefined : opt.value)}
+              />
+            ))}
+          </FilterRow>
+
+          {/* In Stock toggle */}
+          <Link
+            href={filterUrl("inStock", params.inStock === "1" ? undefined : "1")}
+            className={`ml-auto flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all ${
+              params.inStock === "1"
+                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50"
             }`}
           >
-            All Types
+            <PackageCheck className="h-3.5 w-3.5" />
+            In Stock Only
           </Link>
-          {PLANT_TYPES.map((type) => (
-            <Link
-              key={type}
-              href={filterUrl("type", params.type === type ? undefined : type)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                params.type === type
-                  ? "border-gray-900 bg-gray-900 text-white"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              {type}
-            </Link>
-          ))}
-        </div>
-
-        {/* Sun & water filters */}
-        <div className="flex flex-wrap gap-2">
-          <span className="flex items-center gap-1 pr-1 text-xs text-gray-400">
-            <Sun className="h-3.5 w-3.5" />
-          </span>
-          {SUN_OPTIONS.map((opt) => (
-            <Link
-              key={opt}
-              href={filterUrl("sun", params.sun === opt ? undefined : opt)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                params.sun === opt
-                  ? "border-amber-300 bg-amber-50 text-amber-700"
-                  : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
-              }`}
-            >
-              {opt}
-            </Link>
-          ))}
-
-          <span className="ml-2 flex items-center gap-1 pr-1 text-xs text-gray-400">
-            <Droplets className="h-3.5 w-3.5" />
-          </span>
-          {WATER_OPTIONS.map((opt) => (
-            <Link
-              key={opt}
-              href={filterUrl(
-                "water",
-                params.water === opt ? undefined : opt
-              )}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                params.water === opt
-                  ? "border-blue-300 bg-blue-50 text-blue-700"
-                  : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
-              }`}
-            >
-              {opt}
-            </Link>
-          ))}
         </div>
       </div>
 
@@ -232,12 +317,16 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
       {plants.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20">
           <Leaf className="mb-4 h-12 w-12 text-gray-200" />
-          <h2 className="text-lg font-semibold text-gray-500">
-            No plants found
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-500">No plants found</h2>
           <p className="mt-1 text-sm text-gray-400">
             Try adjusting your search or filters.
           </p>
+          <Link
+            href="/plants"
+            className="mt-4 text-sm font-medium text-emerald-600 hover:text-emerald-700"
+          >
+            Clear all filters
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -246,6 +335,7 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
               TYPE_COLORS[plant.plantType || ""] ||
               "bg-gray-100 text-gray-600 border-gray-200";
             const typeIcon = TYPE_ICONS[plant.plantType || ""];
+            const inStockCount = plant.availability.filter((a) => a.inStock).length;
 
             return (
               <Link key={plant.id} href={`/plants/${plant.id}`}>
@@ -286,10 +376,17 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
                         {plant.waterNeeds}
                       </span>
                     )}
+                    {plant.growthRate && (
+                      <span className="flex items-center gap-1">
+                        <Gauge className="h-3 w-3 text-violet-400" />
+                        {plant.growthRate}
+                      </span>
+                    )}
                   </div>
 
+                  {/* Supplier / stock footer */}
                   {plant.availability.length > 0 && (
-                    <div className="mt-3 border-t border-gray-50 pt-3">
+                    <div className="mt-3 flex items-center gap-2 border-t border-gray-50 pt-3">
                       <Badge
                         variant="secondary"
                         className="bg-emerald-50 text-emerald-600 text-xs"
@@ -297,6 +394,11 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
                         {plant.availability.length} supplier
                         {plant.availability.length !== 1 ? "s" : ""}
                       </Badge>
+                      {inStockCount > 0 ? (
+                        <span className="ml-auto text-xs text-emerald-500">✓ In Stock</span>
+                      ) : (
+                        <span className="ml-auto text-xs text-gray-300">Out of Stock</span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -320,15 +422,10 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
               let pageNum: number;
-              if (totalPages <= 7) {
-                pageNum = i + 1;
-              } else if (page <= 4) {
-                pageNum = i + 1;
-              } else if (page >= totalPages - 3) {
-                pageNum = totalPages - 6 + i;
-              } else {
-                pageNum = page - 3 + i;
-              }
+              if (totalPages <= 7)          pageNum = i + 1;
+              else if (page <= 4)           pageNum = i + 1;
+              else if (page >= totalPages - 3) pageNum = totalPages - 6 + i;
+              else                          pageNum = page - 3 + i;
               return (
                 <Link
                   key={pageNum}
@@ -355,5 +452,68 @@ export default async function PlantsPage({ searchParams }: PlantsPageProps) {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Small reusable components ────────────────────────────────────────────────
+
+function FilterRow({
+  label,
+  icon,
+  children,
+  inline = false,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  inline?: boolean;
+}) {
+  return (
+    <div className={`flex ${inline ? "items-center" : "items-start"} gap-3`}>
+      <span className="flex w-20 shrink-0 items-center gap-1.5 pt-1 text-xs font-medium text-gray-400">
+        {icon}
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+function Chip({
+  label,
+  sublabel,
+  active,
+  href,
+  color,
+}: {
+  label: string;
+  sublabel?: string;
+  active: boolean;
+  href: string;
+  color?: "sun" | "water" | "supplier" | "growth";
+}) {
+  const activeStyles: Record<string, string> = {
+    sun:      "border-amber-300  bg-amber-50   text-amber-700",
+    water:    "border-blue-300   bg-blue-50    text-blue-700",
+    supplier: "border-violet-300 bg-violet-50  text-violet-700",
+    growth:   "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700",
+    default:  "border-gray-900   bg-gray-900   text-white",
+  };
+  const inactiveStyle =
+    "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50";
+  const activeStyle = active
+    ? (activeStyles[color ?? "default"] ?? activeStyles.default)
+    : inactiveStyle;
+
+  return (
+    <Link
+      href={href}
+      className={`flex flex-col rounded-full border px-3 py-1.5 text-xs font-medium transition-all leading-tight ${activeStyle}`}
+    >
+      <span>{label}</span>
+      {sublabel && (
+        <span className="text-[10px] opacity-70">{sublabel}</span>
+      )}
+    </Link>
   );
 }
