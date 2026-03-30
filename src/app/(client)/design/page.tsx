@@ -24,6 +24,7 @@ import {
   X,
   Paintbrush,
   Download,
+  Sparkles,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -87,6 +88,29 @@ function parseDesignPlan(content: string): {
 
 function DesignPlanCard({ plan }: { plan: DesignPlan }) {
   const [downloading, setDownloading] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+
+  async function handleGenerateImage() {
+    setGeneratingImage(true);
+    setImageError(null);
+    try {
+      const res = await fetch("/api/ai/generate-design-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      if (!res.ok) throw new Error("Image generation failed");
+      const data = await res.json() as { imageUrl: string };
+      setGeneratedImage(data.imageUrl);
+    } catch (e) {
+      console.error(e);
+      setImageError("Image generation failed. Please try again.");
+    } finally {
+      setGeneratingImage(false);
+    }
+  }
 
   async function handleDownload() {
     setDownloading(true);
@@ -94,7 +118,7 @@ function DesignPlanCard({ plan }: { plan: DesignPlan }) {
       const res = await fetch("/api/design/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(plan),
+        body: JSON.stringify({ plan, imageUrl: generatedImage ?? undefined }),
       });
       if (!res.ok) throw new Error("PDF generation failed");
       const blob = await res.blob();
@@ -160,20 +184,58 @@ function DesignPlanCard({ plan }: { plan: DesignPlan }) {
               {plan.plants.length} varieties
             </span>
           </div>
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-primary-foreground transition-all hover:bg-white/30 disabled:opacity-60"
-          >
-            {downloading ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Download className="h-3 w-3" />
-            )}
-            {downloading ? "Generating…" : "Download PDF"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleGenerateImage}
+              disabled={generatingImage}
+              className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-primary-foreground transition-all hover:bg-white/30 disabled:opacity-60"
+            >
+              {generatingImage ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              {generatingImage ? "Generating…" : generatedImage ? "Regenerate" : "Generate Image"}
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-primary-foreground transition-all hover:bg-white/30 disabled:opacity-60"
+            >
+              {downloading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Download className="h-3 w-3" />
+              )}
+              {downloading ? "Generating…" : "Download PDF"}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* ── AI Generated Image ── */}
+      {(generatingImage || generatedImage || imageError) && (
+        <div className="relative border-b border-border bg-muted/30">
+          {generatingImage && (
+            <div className="flex h-48 items-center justify-center gap-3 text-sm text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin text-[color:var(--zen-accent)]" />
+              <span>Generating your garden scene…</span>
+            </div>
+          )}
+          {generatedImage && !generatingImage && (
+            <img
+              src={generatedImage}
+              alt={plan.title}
+              className="w-full max-h-72 object-cover"
+            />
+          )}
+          {imageError && !generatingImage && (
+            <div className="flex h-24 items-center justify-center text-sm text-destructive">
+              {imageError}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Plant list */}
       <div className="divide-y divide-border px-5">
