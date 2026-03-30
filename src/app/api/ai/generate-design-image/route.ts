@@ -70,10 +70,11 @@ Maintenance: ${plan.maintenanceLevel}
 Peak season: ${plan.peakSeason}
 
 ${hasPhoto
-  ? `This is an img2img transformation of a real photo of the space.
-The prompt must describe what should REPLACE or BE ADDED to the existing scene —
-keep the same architectural elements (walls, fences, paths, structures) but fill in the planting design.
-Describe the plants in their naturalistic positions, lush and well-grown.`
+  ? `This is a LOW-STRENGTH img2img transformation — the original photo structure is mostly preserved.
+CRITICAL: Do NOT describe changing the house, walls, fences, hardscape, bed shape, or dimensions.
+ONLY describe the plants being added into the existing garden bed.
+Focus entirely on: what the plants look like, their foliage, flowers, textures, how they fill the bed.
+The architecture and space dimensions stay exactly the same.`
   : `Create a photorealistic garden scene showing these plants in a naturalistic arrangement.
 Include appropriate architectural context (fence, wall, path) if relevant.`
 }
@@ -107,7 +108,7 @@ Return ONLY the image prompt, no explanation. Keep it under 200 words.`,
         input: {
           prompt: imagePrompt,
           image_url: imageUrl,
-          strength: 0.70,         // 0 = keep original, 1 = completely new
+          strength: 0.45,         // low = preserve architecture/dimensions, only change planting
           num_inference_steps: 28,
           guidance_scale: 3.5,
           num_images: 1,
