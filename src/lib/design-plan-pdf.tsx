@@ -3,6 +3,7 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
   Font,
 } from "@react-pdf/renderer";
@@ -104,10 +105,24 @@ const s = StyleSheet.create({
     color: GOLD,
   },
 
+  // Sketch
+  sketchContainer: {
+    marginHorizontal: 36,
+    marginTop: 20,
+    borderRadius: 6,
+    overflow: "hidden",
+    border: `1px solid ${BORDER}`,
+  },
+  sketchImage: {
+    width: "100%",
+    height: 160,
+    objectFit: "contain",
+  },
+
   // Body
   body: {
     paddingHorizontal: 36,
-    paddingTop: 24,
+    paddingTop: 20,
     paddingBottom: 36,
   },
 
@@ -245,7 +260,7 @@ const s = StyleSheet.create({
 
 // ── PDF Document ─────────────────────────────────────────────────────────────
 
-export function DesignPlanPDF({ plan }: { plan: DesignPlan }) {
+export function DesignPlanPDF({ plan, sketchPng }: { plan: DesignPlan; sketchPng?: string }) {
   const totalCost = plan.plants.reduce((sum, p) => {
     const price = parseFloat(p.priceEach.replace(/[^0-9.]/g, "")) || 0;
     return sum + price * p.quantity;
@@ -282,6 +297,13 @@ export function DesignPlanPDF({ plan }: { plan: DesignPlan }) {
             </Text>
           </View>
         </View>
+
+        {/* ── Sketch layout ── */}
+        {sketchPng && (
+          <View style={s.sketchContainer}>
+            <Image style={s.sketchImage} src={sketchPng} />
+          </View>
+        )}
 
         {/* ── Body ── */}
         <View style={s.body}>

@@ -15,7 +15,16 @@
       "Bash(npx prisma:*)",
       "Bash(npx shadcn@latest add input select card dialog badge table textarea label dropdown-menu separator sheet tabs avatar scroll-area tooltip -y)",
       "Bash(where psql:*)",
-      "Bash(pg_isready)"
+      "Bash(pg_isready)",
+      "Bash(find 'C:\\\\Users\\\\WGibs\\\\Plant Manager V2' -type f -name *chat*)",
+      "Bash(find 'C:\\\\Users\\\\WGibs\\\\Plant Manager V2\\\\src\\\\components' -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(find 'C:\\\\Users\\\\WGibs\\\\Plant Manager V2\\\\src\\\\lib' -type f -name *.ts)",
+      "Bash(ls -la \"C:\\\\Users\\\\WGibs\\\\Plant Manager V2\\\\src\\\\app\\\\\\(client\\)\\\\chat\")",
+      "Bash(find \"C:\\\\Users\\\\WGibs\\\\Plant Manager V2\\\\src\\\\app\\\\\\(client\\)\" -type f)",
+      "Bash(find 'C:\\\\Users\\\\WGibs\\\\Plant Manager V2\\\\src' -type f -name *.ts -o -name *.tsx)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r \"ChatSession\\\\|ChatMessage\" 'C:\\\\Users\\\\WGibs\\\\Plant Manager V2\\\\src' --include=*.ts --include=*.tsx)",
+      "Bash(find 'C:\\\\Users\\\\WGibs\\\\Plant Manager V2\\\\src' -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))"
     ]
   }
 }

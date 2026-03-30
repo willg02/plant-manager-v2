@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { renderToBuffer } from "@react-pdf/renderer";
-import { createElement } from "react";
+import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
+import { createElement, type ReactElement } from "react";
 import { DesignPlanPDF, type DesignPlan } from "@/lib/design-plan-pdf";
+import { generateSketchLayout } from "@/lib/sketch-layout";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -14,8 +15,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid design plan" }, { status: 400 });
     }
 
+    const sketchPng = generateSketchLayout(plan);
+
     const buffer = await renderToBuffer(
-      createElement(DesignPlanPDF, { plan })
+      createElement(DesignPlanPDF, { plan, sketchPng }) as ReactElement<DocumentProps>
     );
 
     const safeName = plan.title
@@ -24,7 +27,7 @@ export async function POST(req: NextRequest) {
       .replace(/^-|-$/g, "")
       .slice(0, 50);
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
