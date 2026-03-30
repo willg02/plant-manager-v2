@@ -86,7 +86,7 @@ function parseDesignPlan(content: string): {
 
 // ─── Design Plan Card ─────────────────────────────────────────────────────────
 
-function DesignPlanCard({ plan }: { plan: DesignPlan }) {
+function DesignPlanCard({ plan, spaceImageDataUrl }: { plan: DesignPlan; spaceImageDataUrl?: string }) {
   const [downloading, setDownloading] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -99,7 +99,7 @@ function DesignPlanCard({ plan }: { plan: DesignPlan }) {
       const res = await fetch("/api/ai/generate-design-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, spaceImageDataUrl }),
       });
       if (!res.ok) throw new Error("Image generation failed");
       const data = await res.json() as { imageUrl: string };
@@ -295,7 +295,7 @@ function DesignPlanCard({ plan }: { plan: DesignPlan }) {
 
 // ─── Message Renderer ─────────────────────────────────────────────────────────
 
-function MessageContent({ content }: { content: string }) {
+function MessageContent({ content, spaceImageDataUrl }: { content: string; spaceImageDataUrl?: string }) {
   const { before, plan, after } = parseDesignPlan(content);
 
   return (
@@ -303,7 +303,7 @@ function MessageContent({ content }: { content: string }) {
       {before && (
         <p className="whitespace-pre-wrap text-sm leading-relaxed">{before}</p>
       )}
-      {plan && <DesignPlanCard plan={plan} />}
+      {plan && <DesignPlanCard plan={plan} spaceImageDataUrl={spaceImageDataUrl} />}
       {after && (
         <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{after}</p>
       )}
@@ -365,6 +365,8 @@ export default function DesignPage() {
     mediaType: string;
     preview: string;
   } | null>(null);
+  // Track the last uploaded space photo so Generate Image can use it for img2img
+  const [lastSpaceImage, setLastSpaceImage] = useState<string | undefined>(undefined);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -394,6 +396,7 @@ export default function DesignPage() {
     try {
       const compressed = await compressImage(file);
       setPendingImage(compressed);
+      setLastSpaceImage(compressed.preview); // save for img2img
     } catch {
       console.error("Image compression failed");
     }
@@ -593,7 +596,7 @@ export default function DesignPage() {
                 />
               )}
               {message.role === "assistant" ? (
-                <MessageContent content={message.content} />
+                <MessageContent content={message.content} spaceImageDataUrl={lastSpaceImage} />
               ) : (
                 <p className="whitespace-pre-wrap text-sm">{message.content}</p>
               )}
