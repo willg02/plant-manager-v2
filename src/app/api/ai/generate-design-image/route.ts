@@ -25,8 +25,14 @@ interface DesignPlan {
   peakSeason: string;
 }
 
-interface FalResult {
+interface FalOutput {
   images?: Array<{ url: string }>;
+}
+
+interface FalResult {
+  data?: FalOutput;
+  images?: Array<{ url: string }>;
+  requestId?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -93,9 +99,13 @@ Return ONLY the image prompt, no explanation. Keep it under 200 words.`,
       },
     }) as FalResult;
 
-    const imageUrl = result?.images?.[0]?.url;
+    // fal.run returns { data: { images: [...] }, requestId } in newer client versions
+    // but may return { images: [...] } directly in older versions — handle both
+    const images = result?.data?.images ?? result?.images;
+    const imageUrl = images?.[0]?.url;
 
     if (!imageUrl) {
+      console.error("[generate-design-image] Unexpected result shape:", JSON.stringify(result));
       return NextResponse.json({ error: "No image returned from fal.ai" }, { status: 500 });
     }
 
