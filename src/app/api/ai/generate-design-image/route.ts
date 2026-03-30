@@ -5,6 +5,9 @@ import { fal } from "@fal-ai/client";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+// Configure at module level — not inside the handler
+fal.config({ credentials: process.env.FAL_KEY });
+
 const anthropic = new Anthropic();
 
 interface DesignPlant {
@@ -22,6 +25,10 @@ interface DesignPlan {
   peakSeason: string;
 }
 
+interface FalResult {
+  images?: Array<{ url: string }>;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { plan, spaceDescription } = (await req.json()) as {
@@ -33,7 +40,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid design plan" }, { status: 400 });
     }
 
-    // ── Step 1: Claude writes an optimised image generation prompt ─────────
+    // ── Step 1: Claude writes an optimised image generation prompt ──────────
     const plantList = plan.plants
       .map((p) => `${p.quantity}x ${p.name} (${p.placement})`)
       .join(", ");
@@ -59,22 +66,20 @@ Requirements:
 - Beautiful natural lighting (golden hour or soft daylight)
 - Lush, well-maintained residential garden setting
 - Professional garden photography style
-- Include the architectural/structural context (fence, wall, path, etc.) if relevant
 
-Return ONLY the image prompt, no explanation. Keep it under 250 words.`,
+Return ONLY the image prompt, no explanation. Keep it under 200 words.`,
         },
       ],
     });
 
     const imagePrompt =
-      (promptMsg.content[0] as { type: string; text: string }).type === "text"
-        ? (promptMsg.content[0] as { type: string; text: string }).text.trim()
-        : `A beautiful ${plan.concept} garden with ${plan.plants.map((p) => p.name).join(", ")}, professional garden photography, natural lighting, lush residential garden`;
+      promptMsg.content[0]?.type === "text"
+        ? promptMsg.content[0].text.trim()
+        : `A beautiful ${plan.concept} garden with ${plan.plants.map((p) => p.name).join(", ")}, professional garden photography, natural lighting`;
 
-    // ── Step 2: Generate image via fal.ai FLUX ────────────────────────────
-    fal.config({ credentials: process.env.FAL_KEY });
-
-    const result = await fal.subscribe("fal-ai/flux/schnell", {
+    // ── Step 2: Generate image via fal.ai FLUX schnell ──────────────────────
+    // Use fal.run (direct request/response) not fal.subscribe (polling)
+    const result = await fal.run("fal-ai/flux/schnell", {
       input: {
         prompt: imagePrompt,
         image_size: "landscape_16_9",
@@ -82,12 +87,12 @@ Return ONLY the image prompt, no explanation. Keep it under 250 words.`,
         num_images: 1,
         enable_safety_checker: true,
       },
-    }) as { images?: Array<{ url: string }> };
+    }) as FalResult;
 
     const imageUrl = result?.images?.[0]?.url;
 
     if (!imageUrl) {
-      return NextResponse.json({ error: "Image generation failed" }, { status: 500 });
+      return NextResponse.json({ error: "No image returned from fal.ai" }, { status: 500 });
     }
 
     return NextResponse.json({ imageUrl, prompt: imagePrompt });
