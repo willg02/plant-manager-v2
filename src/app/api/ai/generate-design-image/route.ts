@@ -36,6 +36,10 @@ export async function POST(req: NextRequest) {
       spaceDescription?: string;
     };
 
+    if (!process.env.FAL_KEY) {
+      return NextResponse.json({ error: "FAL_KEY environment variable is not set" }, { status: 500 });
+    }
+
     if (!plan?.title || !plan?.plants?.length) {
       return NextResponse.json({ error: "Invalid design plan" }, { status: 400 });
     }
@@ -97,7 +101,9 @@ Return ONLY the image prompt, no explanation. Keep it under 200 words.`,
 
     return NextResponse.json({ imageUrl, prompt: imagePrompt });
   } catch (err) {
-    console.error("[generate-design-image]", err);
-    return NextResponse.json({ error: "Failed to generate image" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[generate-design-image]", message, stack);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
