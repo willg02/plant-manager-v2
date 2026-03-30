@@ -23,6 +23,7 @@ import {
   ImagePlus,
   X,
   Paintbrush,
+  Download,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -85,6 +86,32 @@ function parseDesignPlan(content: string): {
 // ─── Design Plan Card ─────────────────────────────────────────────────────────
 
 function DesignPlanCard({ plan }: { plan: DesignPlan }) {
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/design/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(plan),
+      });
+      if (!res.ok) throw new Error("PDF generation failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download =
+        `plantmanager-${plan.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 50)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   const maintenanceBadge =
     plan.maintenanceLevel === "Low"
       ? "bg-green-100 text-green-700 border-green-200"
@@ -120,17 +147,31 @@ function DesignPlanCard({ plan }: { plan: DesignPlan }) {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${maintenanceBadge}`}>
-            {plan.maintenanceLevel} Maintenance
-          </span>
-          <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
-            Peak: {plan.peakSeason}
-          </span>
-          <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
-            {plan.plants.reduce((s, p) => s + p.quantity, 0)} plants ·{" "}
-            {plan.plants.length} varieties
-          </span>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${maintenanceBadge}`}>
+              {plan.maintenanceLevel} Maintenance
+            </span>
+            <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
+              Peak: {plan.peakSeason}
+            </span>
+            <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
+              {plan.plants.reduce((s, p) => s + p.quantity, 0)} plants ·{" "}
+              {plan.plants.length} varieties
+            </span>
+          </div>
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-primary-foreground transition-all hover:bg-white/30 disabled:opacity-60"
+          >
+            {downloading ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Download className="h-3 w-3" />
+            )}
+            {downloading ? "Generating…" : "Download PDF"}
+          </button>
         </div>
       </div>
 
