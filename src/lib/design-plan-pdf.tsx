@@ -3,10 +3,10 @@ import {
   Page,
   Text,
   View,
+  Image as PdfImage,
   StyleSheet,
   Font,
 } from "@react-pdf/renderer";
-import { SketchLayout } from "./sketch-layout";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -260,7 +260,7 @@ const s = StyleSheet.create({
 
 // ── PDF Document ─────────────────────────────────────────────────────────────
 
-export function DesignPlanPDF({ plan }: { plan: DesignPlan }) {
+export function DesignPlanPDF({ plan, imageUrl }: { plan: DesignPlan; imageUrl?: string }) {
   const totalCost = plan.plants.reduce((sum, p) => {
     const price = parseFloat(p.priceEach.replace(/[^0-9.]/g, "")) || 0;
     return sum + price * p.quantity;
@@ -298,10 +298,12 @@ export function DesignPlanPDF({ plan }: { plan: DesignPlan }) {
           </View>
         </View>
 
-        {/* ── Sketch layout ── */}
-        <View style={s.sketchContainer}>
-          <SketchLayout plan={plan} />
-        </View>
+        {/* ── AI Design Image (if available) ── */}
+        {imageUrl && (
+          <View style={s.sketchContainer}>
+            <PdfImage style={s.sketchImage} src={imageUrl} />
+          </View>
+        )}
 
         {/* ── Body ── */}
         <View style={s.body}>

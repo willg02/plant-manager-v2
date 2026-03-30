@@ -8,14 +8,15 @@ export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   try {
-    const plan = (await req.json()) as DesignPlan;
+    const body = await req.json() as { plan: DesignPlan; imageUrl?: string };
+    const { plan, imageUrl } = body;
 
     if (!plan?.title || !plan?.plants) {
       return NextResponse.json({ error: "Invalid design plan" }, { status: 400 });
     }
 
     const buffer = await renderToBuffer(
-      createElement(DesignPlanPDF, { plan }) as ReactElement<DocumentProps>
+      createElement(DesignPlanPDF, { plan, imageUrl }) as ReactElement<DocumentProps>
     );
 
     const safeName = plan.title
