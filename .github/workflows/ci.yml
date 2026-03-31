@@ -11,6 +11,10 @@ jobs:
     name: Lint, Type Check & Test
     runs-on: ubuntu-latest
 
+    env:
+      # Dummy URL for Prisma client generation (no actual DB connection needed)
+      DATABASE_URL: "postgresql://user:pass@localhost:5432/dummy"
+
     steps:
       - uses: actions/checkout@v4
 
