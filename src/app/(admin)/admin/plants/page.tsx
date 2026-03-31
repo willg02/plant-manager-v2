@@ -15,6 +15,7 @@ import {
 import { Plus } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { PopulateAllButton } from "@/components/admin/populate-all-button";
+import { DeleteConfirmButton } from "@/components/admin/delete-confirm-button";
 
 async function deletePlant(formData: FormData) {
   "use server";
@@ -101,12 +102,14 @@ export default async function AdminPlantsPage() {
                           Edit
                         </Button>
                       </Link>
-                      <form action={deletePlant}>
-                        <input type="hidden" name="plantId" value={plant.id} />
-                        <Button variant="destructive" size="sm" type="submit">
-                          Delete
-                        </Button>
-                      </form>
+                      <DeleteConfirmButton
+                        name={plant.commonName}
+                        entityType="plant"
+                        hiddenFieldName="plantId"
+                        hiddenFieldValue={plant.id}
+                        action={deletePlant}
+                        extraWarning="This will also remove all availability records for this plant."
+                      />
                     </div>
                   </TableCell>
                 </TableRow>

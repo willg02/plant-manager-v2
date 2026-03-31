@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -88,6 +89,7 @@ export default function EditSupplierPage() {
         throw new Error(data.error || "Failed to update supplier");
       }
 
+      toast.success("Supplier updated");
       router.push("/admin/suppliers");
       router.refresh();
     } catch (err) {

@@ -6,24 +6,61 @@ const isAdminApiRoute = createRouteMatcher([
   "/api/upload(.*)",
   "/api/ai/populate(.*)",
   "/api/admin/(.*)",
+  "/api/plants(.*)",
+  "/api/regions(.*)",
+  "/api/suppliers(.*)",
+  "/api/scraper(.*)",
+]);
+
+// AI routes require login but not admin role
+const isAuthApiRoute = createRouteMatcher([
+  "/api/ai/chat(.*)",
+  "/api/ai/design(.*)",
+  "/api/ai/generate-design-image(.*)",
+  "/api/design/(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (!isAdminRoute(req) && !isAdminApiRoute(req)) return;
+  const method = req.method;
 
-  const { userId } = await auth();
-
-  if (!userId) {
-    return NextResponse.redirect(new URL("/sign-in", req.url));
+  // AI/design routes: require login (any role)
+  if (isAuthApiRoute(req)) {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return;
   }
 
-  // Fetch live metadata — session JWT claims don't include publicMetadata by default
-  const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-  const role = user.publicMetadata?.role as string | undefined;
+  // Admin UI: always require admin
+  if (isAdminRoute(req)) {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.redirect(new URL("/sign-in", req.url));
+    }
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
+    const role = user.publicMetadata?.role as string | undefined;
+    if (role !== "admin") {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+    return;
+  }
 
-  if (role !== "admin") {
-    return NextResponse.redirect(new URL("/", req.url));
+  // Admin API routes: GET is public for browsing, writes require admin
+  if (isAdminApiRoute(req)) {
+    if (method === "GET") return;
+
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
+    const role = user.publicMetadata?.role as string | undefined;
+    if (role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 });
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,6 +92,7 @@ export default function NewPlantPage() {
         throw new Error(data.error || "Failed to create plant");
       }
 
+      toast.success(`Plant "${form.commonName.trim()}" created`);
       router.push("/admin/plants");
       router.refresh();
     } catch (err) {

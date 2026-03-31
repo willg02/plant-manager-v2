@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,6 +82,7 @@ export default function NewSupplierPage() {
         throw new Error(data.error || "Failed to create supplier");
       }
 
+      toast.success(`Supplier "${form.name.trim()}" created`);
       router.push("/admin/suppliers");
       router.refresh();
     } catch (err) {

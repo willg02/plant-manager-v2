@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +56,7 @@ export default function NewRegionPage() {
         throw new Error(data.error || "Failed to create region");
       }
 
+      toast.success(`Region "${form.name.trim()}" created`);
       router.push("/admin/regions");
       router.refresh();
     } catch (err) {

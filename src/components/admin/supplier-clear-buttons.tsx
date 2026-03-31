@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 interface SupplierClearButtonsProps {
@@ -36,8 +37,10 @@ export function SupplierClearButtons({
       });
       if (!res.ok) {
         const data = await res.json();
-        alert(`Error: ${data.error}`);
+        toast.error(data.error || "Failed to clear inventory");
       } else {
+        const data = await res.json();
+        toast.success(`Cleared ${data.deleted} listing(s) from "${supplierName}"`);
         router.refresh();
       }
     } finally {
@@ -63,8 +66,12 @@ export function SupplierClearButtons({
       });
       if (!res.ok) {
         const data = await res.json();
-        alert(`Error: ${data.error}`);
+        toast.error(data.error || "Failed to clear plants");
       } else {
+        const data = await res.json();
+        toast.success(
+          `Cleared ${data.deletedAvailability} listing(s) and ${data.deletedPlants} plant(s) from "${supplierName}"`
+        );
         router.refresh();
       }
     } finally {

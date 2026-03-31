@@ -3,6 +3,7 @@ import { DM_Sans, Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -37,6 +38,7 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange={false}
           >
+            <Toaster richColors position="top-right" />
             <TooltipProvider>{children}</TooltipProvider>
           </ThemeProvider>
         </body>

@@ -14,6 +14,7 @@ import {
 import { Plus } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { SupplierClearButtons } from "@/components/admin/supplier-clear-buttons";
+import { DeleteConfirmButton } from "@/components/admin/delete-confirm-button";
 
 async function deleteSupplier(formData: FormData) {
   "use server";
@@ -81,16 +82,14 @@ export default async function AdminSuppliersPage() {
                           Edit
                         </Button>
                       </Link>
-                      <form action={deleteSupplier}>
-                        <input
-                          type="hidden"
-                          name="supplierId"
-                          value={supplier.id}
-                        />
-                        <Button variant="destructive" size="sm" type="submit">
-                          Delete
-                        </Button>
-                      </form>
+                      <DeleteConfirmButton
+                        name={supplier.name}
+                        entityType="supplier"
+                        hiddenFieldName="supplierId"
+                        hiddenFieldValue={supplier.id}
+                        action={deleteSupplier}
+                        extraWarning="This will also remove all plant listings for this supplier."
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
