@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -14,6 +15,7 @@ import {
 import { Plus } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { DeleteRegionButton } from "./delete-region-button";
+import { AdminSearch } from "@/components/admin/admin-search";
 
 async function deleteRegion(formData: FormData) {
   "use server";
@@ -27,8 +29,25 @@ async function deleteRegion(formData: FormData) {
   revalidatePath("/admin/regions");
 }
 
-export default async function AdminRegionsPage() {
+interface Props {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function AdminRegionsPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const query = typeof params.q === "string" ? params.q.trim() : "";
+
+  const where: Prisma.RegionWhereInput = {};
+  if (query) {
+    where.OR = [
+      { name: { contains: query, mode: "insensitive" } },
+      { state: { contains: query, mode: "insensitive" } },
+      { climateZone: { contains: query, mode: "insensitive" } },
+    ];
+  }
+
   const regions = await prisma.region.findMany({
+    where,
     orderBy: { name: "asc" },
     include: {
       _count: { select: { suppliers: true } },
@@ -47,6 +66,10 @@ export default async function AdminRegionsPage() {
         </Link>
       </div>
 
+      <div className="flex items-center gap-3">
+        <AdminSearch placeholder="Search regions..." />
+      </div>
+
       <div className="rounded-lg border bg-white">
         <Table>
           <TableHeader>
@@ -62,7 +85,7 @@ export default async function AdminRegionsPage() {
             {regions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  No regions found.
+                  {query ? "No regions match your search." : "No regions found."}
                 </TableCell>
               </TableRow>
             ) : (

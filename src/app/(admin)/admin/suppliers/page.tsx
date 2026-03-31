@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -15,6 +16,7 @@ import { Plus } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { SupplierClearButtons } from "@/components/admin/supplier-clear-buttons";
 import { DeleteConfirmButton } from "@/components/admin/delete-confirm-button";
+import { AdminSearch } from "@/components/admin/admin-search";
 
 async function deleteSupplier(formData: FormData) {
   "use server";
@@ -24,8 +26,25 @@ async function deleteSupplier(formData: FormData) {
   revalidatePath("/admin/suppliers");
 }
 
-export default async function AdminSuppliersPage() {
+interface Props {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function AdminSuppliersPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const query = typeof params.q === "string" ? params.q.trim() : "";
+
+  const where: Prisma.SupplierWhereInput = {};
+  if (query) {
+    where.OR = [
+      { name: { contains: query, mode: "insensitive" } },
+      { city: { contains: query, mode: "insensitive" } },
+      { region: { name: { contains: query, mode: "insensitive" } } },
+    ];
+  }
+
   const suppliers = await prisma.supplier.findMany({
+    where,
     orderBy: { name: "asc" },
     include: {
       region: { select: { name: true } },
@@ -45,6 +64,10 @@ export default async function AdminSuppliersPage() {
         </Link>
       </div>
 
+      <div className="flex items-center gap-3">
+        <AdminSearch placeholder="Search suppliers..." />
+      </div>
+
       <div className="rounded-lg border bg-white">
         <Table>
           <TableHeader>
@@ -60,7 +83,7 @@ export default async function AdminSuppliersPage() {
             {suppliers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  No suppliers found.
+                  {query ? "No suppliers match your search." : "No suppliers found."}
                 </TableCell>
               </TableRow>
             ) : (

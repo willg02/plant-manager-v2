@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,6 +18,11 @@ import { revalidatePath } from "next/cache";
 import { PopulateAllButton } from "@/components/admin/populate-all-button";
 import { DeleteConfirmButton } from "@/components/admin/delete-confirm-button";
 import { ClearUnpopulatedButton } from "@/components/admin/clear-unpopulated-button";
+import { AdminSearch } from "@/components/admin/admin-search";
+import { AdminPagination } from "@/components/admin/admin-pagination";
+import { StatusFilter } from "@/components/admin/status-filter";
+
+const PAGE_SIZE = 50;
 
 async function deletePlant(formData: FormData) {
   "use server";
@@ -35,29 +41,71 @@ async function clearUnpopulated(): Promise<{ deleted: number }> {
   return { deleted: result.count };
 }
 
-export default async function AdminPlantsPage() {
-  const plants = await prisma.plant.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      availability: {
-        include: { supplier: { select: { name: true } } },
-        take: 1,
-      },
-    },
-  });
+interface Props {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
 
-  const pendingPlants = plants.filter((p) => !p.aiPopulated);
-  const pendingPlantIds = pendingPlants.map((p) => p.id);
+export default async function AdminPlantsPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const query = typeof params.q === "string" ? params.q.trim() : "";
+  const status = typeof params.status === "string" ? params.status : "";
+  const page = Math.max(1, parseInt(typeof params.page === "string" ? params.page : "1", 10) || 1);
+
+  // Build where clause
+  const where: Prisma.PlantWhereInput = {};
+
+  if (query) {
+    where.OR = [
+      { commonName: { contains: query, mode: "insensitive" } },
+      { botanicalName: { contains: query, mode: "insensitive" } },
+      { plantType: { contains: query, mode: "insensitive" } },
+    ];
+  }
+
+  if (status === "populated") {
+    where.aiPopulated = true;
+  } else if (status === "pending") {
+    where.aiPopulated = false;
+  }
+
+  // Parallel queries for data + counts
+  const [plants, totalCount, pendingCount] = await Promise.all([
+    prisma.plant.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: {
+        availability: {
+          include: { supplier: { select: { name: true } } },
+          take: 1,
+        },
+      },
+    }),
+    prisma.plant.count({ where }),
+    prisma.plant.count({ where: { aiPopulated: false } }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  // Get all pending plant IDs for the Populate All button (only when no filters applied)
+  const pendingPlantIds =
+    !query && !status
+      ? (await prisma.plant.findMany({
+          where: { aiPopulated: false },
+          select: { id: true },
+        })).map((p) => p.id)
+      : plants.filter((p) => !p.aiPopulated).map((p) => p.id);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Plants</h2>
         <div className="flex gap-2">
-          {pendingPlants.length > 0 && (
+          {pendingCount > 0 && (
             <>
               <ClearUnpopulatedButton
-                count={pendingPlants.length}
+                count={pendingCount}
                 action={clearUnpopulated}
               />
               <PopulateAllButton pendingPlantIds={pendingPlantIds} />
@@ -70,6 +118,19 @@ export default async function AdminPlantsPage() {
             </Button>
           </Link>
         </div>
+      </div>
+
+      {/* Search & Filters */}
+      <div className="flex items-center gap-3">
+        <AdminSearch placeholder="Search plants..." />
+        <StatusFilter
+          paramName="status"
+          placeholder="All Status"
+          options={[
+            { value: "populated", label: "Populated" },
+            { value: "pending", label: "Pending" },
+          ]}
+        />
       </div>
 
       <div className="rounded-lg border bg-white">
@@ -87,7 +148,9 @@ export default async function AdminPlantsPage() {
             {plants.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  No plants found. Add your first plant to get started.
+                  {query || status
+                    ? "No plants match your search."
+                    : "No plants found. Add your first plant to get started."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -133,6 +196,11 @@ export default async function AdminPlantsPage() {
             )}
           </TableBody>
         </Table>
+        <AdminPagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={totalCount}
+        />
       </div>
     </div>
   );
