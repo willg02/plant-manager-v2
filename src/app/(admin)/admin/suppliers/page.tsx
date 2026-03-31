@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Plus } from "lucide-react";
 import { revalidatePath } from "next/cache";
+import { SupplierClearButtons } from "@/components/admin/supplier-clear-buttons";
 
 async function deleteSupplier(formData: FormData) {
   "use server";
@@ -70,6 +71,11 @@ export default async function AdminSuppliersPage() {
                   <TableCell>{supplier._count.availability}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <SupplierClearButtons
+                        supplierId={supplier.id}
+                        supplierName={supplier.name}
+                        plantCount={supplier._count.availability}
+                      />
                       <Link href={`/admin/suppliers/${supplier.id}/edit`}>
                         <Button variant="outline" size="sm">
                           Edit
