@@ -18,6 +18,7 @@ import { revalidatePath } from "next/cache";
 import { PopulateAllButton } from "@/components/admin/populate-all-button";
 import { DeleteConfirmButton } from "@/components/admin/delete-confirm-button";
 import { ClearUnpopulatedButton } from "@/components/admin/clear-unpopulated-button";
+import { DeleteAllPlantsButton } from "@/components/admin/delete-all-plants-button";
 import { AdminSearch } from "@/components/admin/admin-search";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 import { StatusFilter } from "@/components/admin/status-filter";
@@ -37,6 +38,15 @@ async function clearUnpopulated(): Promise<{ deleted: number }> {
   const result = await prisma.plant.deleteMany({
     where: { aiPopulated: false },
   });
+  revalidatePath("/admin/plants");
+  return { deleted: result.count };
+}
+
+async function deleteAllPlants(): Promise<{ deleted: number }> {
+  "use server";
+  // Delete availability first (cascade would handle it, but explicit is safer for counts)
+  await prisma.plantAvailability.deleteMany({});
+  const result = await prisma.plant.deleteMany({});
   revalidatePath("/admin/plants");
   return { deleted: result.count };
 }
@@ -69,7 +79,7 @@ export default async function AdminPlantsPage({ searchParams }: Props) {
   }
 
   // Parallel queries for data + counts
-  const [plants, totalCount, pendingCount] = await Promise.all([
+  const [plants, totalCount, pendingCount, allPlantsCount] = await Promise.all([
     prisma.plant.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -84,6 +94,7 @@ export default async function AdminPlantsPage({ searchParams }: Props) {
     }),
     prisma.plant.count({ where }),
     prisma.plant.count({ where: { aiPopulated: false } }),
+    prisma.plant.count(),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -102,6 +113,12 @@ export default async function AdminPlantsPage({ searchParams }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Plants</h2>
         <div className="flex gap-2">
+          {allPlantsCount > 0 && (
+            <DeleteAllPlantsButton
+              count={allPlantsCount}
+              action={deleteAllPlants}
+            />
+          )}
           {pendingCount > 0 && (
             <>
               <ClearUnpopulatedButton
