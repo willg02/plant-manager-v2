@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { claude } from "@/lib/claude";
 import { buildChatSystemPrompt } from "./prompts";
+import { cached } from "@/lib/cache";
+
+const PLANT_CONTEXT_TTL = 5 * 60 * 1000; // 5 minutes
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -57,22 +60,24 @@ export async function retrievePlantContext(
   regionId: string,
   _userMessage: string
 ): Promise<string> {
-  // Load all plants in the region and let Claude handle matching.
-  // Keyword filtering caused too many misses (plurals, synonyms, botanical names).
-  const plants = await prisma.plant.findMany({
-    where: {
-      availability: { some: { regionId } },
-    },
-    include: {
-      availability: {
-        where: { regionId },
-        include: { supplier: { select: { name: true } } },
+  // Cache plant context per region — avoids re-querying the full plant list
+  // on every chat message. Invalidated after 5 minutes or on data changes.
+  return cached(`plant-context:${regionId}`, PLANT_CONTEXT_TTL, async () => {
+    const plants = await prisma.plant.findMany({
+      where: {
+        availability: { some: { regionId } },
       },
-    },
-    orderBy: { commonName: "asc" },
-  });
+      include: {
+        availability: {
+          where: { regionId },
+          include: { supplier: { select: { name: true } } },
+        },
+      },
+      orderBy: { commonName: "asc" },
+    });
 
-  return formatPlantContext(plants);
+    return formatPlantContext(plants);
+  });
 }
 
 export async function streamChat(

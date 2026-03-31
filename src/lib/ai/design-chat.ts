@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { claude } from "@/lib/claude";
 import { buildDesignSystemPrompt } from "./prompts";
+import { cached } from "@/lib/cache";
+
+const DESIGN_CONTEXT_TTL = 5 * 60 * 1000; // 5 minutes
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -13,39 +16,41 @@ interface ImageData {
 }
 
 async function getAllInStockPlants(regionId: string): Promise<string> {
-  const plants = await prisma.plant.findMany({
-    where: {
-      availability: {
-        some: { regionId, inStock: true },
+  return cached(`design-plants:${regionId}`, DESIGN_CONTEXT_TTL, async () => {
+    const plants = await prisma.plant.findMany({
+      where: {
+        availability: {
+          some: { regionId, inStock: true },
+        },
       },
-    },
-    include: {
-      availability: {
-        where: { regionId, inStock: true },
-        include: { supplier: { select: { name: true } } },
+      include: {
+        availability: {
+          where: { regionId, inStock: true },
+          include: { supplier: { select: { name: true } } },
+        },
       },
-    },
-    orderBy: { commonName: "asc" },
-  });
+      orderBy: { commonName: "asc" },
+    });
 
-  if (plants.length === 0) return "No plants currently in stock for this region.";
+    if (plants.length === 0) return "No plants currently in stock for this region.";
 
-  return plants
-    .map((p) => {
-      const avail = p.availability
-        .map(
-          (a) =>
-            `${a.supplier.name}${a.size ? ` (${a.size})` : ""}${a.price ? ` - $${a.price}` : ""}`
-        )
-        .join("; ");
+    return plants
+      .map((p) => {
+        const avail = p.availability
+          .map(
+            (a) =>
+              `${a.supplier.name}${a.size ? ` (${a.size})` : ""}${a.price ? ` - $${a.price}` : ""}`
+          )
+          .join("; ");
 
-      return `- ${p.commonName}${p.botanicalName ? ` (${p.botanicalName})` : ""}
+        return `- ${p.commonName}${p.botanicalName ? ` (${p.botanicalName})` : ""}
   Type: ${p.plantType || "N/A"} | Sun: ${p.sunRequirement || "N/A"} | Water: ${p.waterNeeds || "N/A"}
   Zones: ${p.hardinessZoneMin || "?"}–${p.hardinessZoneMax || "?"} | Size: ${p.matureHeight || "N/A"} H × ${p.matureWidth || "N/A"} W
   Bloom: ${p.bloomTime || "N/A"} (${p.bloomColor || "N/A"}) | Growth: ${p.growthRate || "N/A"}
   In stock at: ${avail}`;
-    })
-    .join("\n\n");
+      })
+      .join("\n\n");
+  });
 }
 
 export async function streamDesignChat(

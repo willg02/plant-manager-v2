@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { Prisma } from "@/generated/prisma";
+import { invalidateCache } from "@/lib/cache";
 
 interface UploadRow {
   commonName: string;
@@ -162,6 +163,10 @@ export async function POST(request: NextRequest) {
         completedAt: new Date(),
       },
     });
+
+    // Invalidate plant context caches since inventory changed
+    invalidateCache("plant-context:");
+    invalidateCache("design-plants:");
 
     return NextResponse.json({
       created: successCount,
