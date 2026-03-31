@@ -16,6 +16,7 @@ import { Plus } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { PopulateAllButton } from "@/components/admin/populate-all-button";
 import { DeleteConfirmButton } from "@/components/admin/delete-confirm-button";
+import { ClearUnpopulatedButton } from "@/components/admin/clear-unpopulated-button";
 
 async function deletePlant(formData: FormData) {
   "use server";
@@ -23,6 +24,15 @@ async function deletePlant(formData: FormData) {
   if (!plantId) return;
   await prisma.plant.delete({ where: { id: plantId } });
   revalidatePath("/admin/plants");
+}
+
+async function clearUnpopulated(): Promise<{ deleted: number }> {
+  "use server";
+  const result = await prisma.plant.deleteMany({
+    where: { aiPopulated: false },
+  });
+  revalidatePath("/admin/plants");
+  return { deleted: result.count };
 }
 
 export default async function AdminPlantsPage() {
@@ -44,8 +54,14 @@ export default async function AdminPlantsPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Plants</h2>
         <div className="flex gap-2">
-          {pendingPlantIds.length > 0 && (
-            <PopulateAllButton pendingPlantIds={pendingPlantIds} />
+          {pendingPlants.length > 0 && (
+            <>
+              <ClearUnpopulatedButton
+                count={pendingPlants.length}
+                action={clearUnpopulated}
+              />
+              <PopulateAllButton pendingPlantIds={pendingPlantIds} />
+            </>
           )}
           <Link href="/admin/plants/new">
             <Button>
