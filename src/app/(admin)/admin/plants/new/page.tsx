@@ -12,6 +12,7 @@ import {
   CardTitle,
   CardContent,
 } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/admin/breadcrumb";
 
 interface Supplier {
   id: string;
@@ -104,6 +105,7 @@ export default function NewPlantPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
+      <Breadcrumb items={[{ label: "Plants", href: "/admin/plants" }, { label: "Add New" }]} />
       <h2 className="mb-4 text-2xl font-bold">Add New Plant</h2>
 
       <Card>

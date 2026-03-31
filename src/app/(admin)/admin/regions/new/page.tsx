@@ -13,6 +13,7 @@ import {
   CardTitle,
   CardContent,
 } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/admin/breadcrumb";
 
 export default function NewRegionPage() {
   const router = useRouter();
@@ -68,6 +69,7 @@ export default function NewRegionPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
+      <Breadcrumb items={[{ label: "Regions", href: "/admin/regions" }, { label: "Add New" }]} />
       <h2 className="mb-4 text-2xl font-bold">Add New Region</h2>
 
       <Card>

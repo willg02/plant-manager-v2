@@ -23,21 +23,39 @@ interface Region {
 }
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem("chat-messages");
+      return saved ? (JSON.parse(saved) as Message[]) : [];
+    } catch { return []; }
+  });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [regionId, setRegionId] = useState<string | undefined>(undefined);
+  const [regionId, setRegionId] = useState<string | undefined>(() => {
+    if (typeof window === "undefined") return undefined;
+    return sessionStorage.getItem("chat-regionId") || undefined;
+  });
   const [regions, setRegions] = useState<Region[]>([]);
   const [regionsLoading, setRegionsLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Persist messages and region to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("chat-messages", JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(() => {
+    if (regionId) sessionStorage.setItem("chat-regionId", regionId);
+  }, [regionId]);
 
   useEffect(() => {
     fetch("/api/regions")
       .then((res) => res.json())
       .then((data: Region[]) => {
         setRegions(data);
-        if (data.length === 1) setRegionId(data[0].id);
+        if (!regionId && data.length === 1) setRegionId(data[0].id);
       })
       .catch(console.error)
       .finally(() => setRegionsLoading(false));

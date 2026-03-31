@@ -15,6 +15,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
+import { Breadcrumb } from "@/components/admin/breadcrumb";
 
 interface PlantData {
   id: string;
@@ -262,6 +263,7 @@ export default function EditPlantPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <Breadcrumb items={[{ label: "Plants", href: "/admin/plants" }, { label: plant?.commonName || "Edit" }]} />
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Edit Plant</h2>
         <div className="flex items-center gap-2">

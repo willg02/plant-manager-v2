@@ -13,6 +13,7 @@ import {
   CardTitle,
   CardContent,
 } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/admin/breadcrumb";
 
 interface Region {
   id: string;
@@ -94,6 +95,7 @@ export default function NewSupplierPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
+      <Breadcrumb items={[{ label: "Suppliers", href: "/admin/suppliers" }, { label: "Add New" }]} />
       <h2 className="mb-4 text-2xl font-bold">Add New Supplier</h2>
 
       <Card>

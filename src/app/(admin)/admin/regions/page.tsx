@@ -20,10 +20,8 @@ async function deleteRegion(formData: FormData) {
   const regionId = formData.get("regionId") as string;
   if (!regionId) return;
 
-  // Delete in dependency order to avoid FK constraint errors
-  await prisma.plantAvailability.deleteMany({ where: { regionId } });
-  await prisma.supplier.deleteMany({ where: { regionId } });
-  await prisma.chatSession.deleteMany({ where: { regionId } });
+  // Cascade rules on FK relations handle PlantAvailability, Suppliers,
+  // and ChatSession cleanup automatically
   await prisma.region.delete({ where: { id: regionId } });
 
   revalidatePath("/admin/regions");

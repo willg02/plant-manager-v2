@@ -354,10 +354,19 @@ function compressImage(
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DesignPage() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem("design-messages");
+      return saved ? (JSON.parse(saved) as Message[]) : [];
+    } catch { return []; }
+  });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [regionId, setRegionId] = useState<string | undefined>(undefined);
+  const [regionId, setRegionId] = useState<string | undefined>(() => {
+    if (typeof window === "undefined") return undefined;
+    return sessionStorage.getItem("design-regionId") || undefined;
+  });
   const [regions, setRegions] = useState<Region[]>([]);
   const [regionsLoading, setRegionsLoading] = useState(true);
   const [pendingImage, setPendingImage] = useState<{
@@ -372,12 +381,22 @@ export default function DesignPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Persist messages (without large image previews) and region to sessionStorage
+  useEffect(() => {
+    const toSave = messages.map(({ role, content }) => ({ role, content }));
+    sessionStorage.setItem("design-messages", JSON.stringify(toSave));
+  }, [messages]);
+
+  useEffect(() => {
+    if (regionId) sessionStorage.setItem("design-regionId", regionId);
+  }, [regionId]);
+
   useEffect(() => {
     fetch("/api/regions")
       .then((r) => r.json())
       .then((data: Region[]) => {
         setRegions(data);
-        if (data.length === 1) setRegionId(data[0].id);
+        if (!regionId && data.length === 1) setRegionId(data[0].id);
       })
       .catch(console.error)
       .finally(() => setRegionsLoading(false));

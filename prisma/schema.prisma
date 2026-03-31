@@ -27,7 +27,7 @@ model Supplier {
   id       String  @id @default(cuid())
   name     String
   regionId String
-  region   Region  @relation(fields: [regionId], references: [id])
+  region   Region  @relation(fields: [regionId], references: [id], onDelete: Cascade)
   address  String?
   city     String?
   state    String?
@@ -44,6 +44,7 @@ model Supplier {
   availability PlantAvailability[]
 
   @@index([regionId])
+  @@index([isActive])
 }
 
 // ─── PLANT ─────────────────────────────────────────────
@@ -89,6 +90,7 @@ model Plant {
   @@index([plantType])
   @@index([sunRequirement])
   @@index([waterNeeds])
+  @@index([aiPopulated])
 }
 
 // ─── PLANT AVAILABILITY ────────────────────────────────
@@ -99,7 +101,7 @@ model PlantAvailability {
   supplierId String
   supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   regionId   String
-  region     Region @relation(fields: [regionId], references: [id])
+  region     Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
 
   price      Decimal? @db.Decimal(10, 2)
   size       String?
@@ -113,6 +115,7 @@ model PlantAvailability {
   @@index([plantId])
   @@index([supplierId])
   @@index([regionId])
+  @@index([inStock])
 }
 
 // ─── UPLOAD LOG ────────────────────────────────────────
@@ -136,7 +139,7 @@ model ChatSession {
   id       String  @id @default(cuid())
   userId   String?
   regionId String?
-  region   Region? @relation(fields: [regionId], references: [id])
+  region   Region? @relation(fields: [regionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

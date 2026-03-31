@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { Breadcrumb } from "@/components/admin/breadcrumb";
 
 interface Region {
   id: string;
@@ -109,6 +110,7 @@ export default function EditSupplierPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
+      <Breadcrumb items={[{ label: "Suppliers", href: "/admin/suppliers" }, { label: form.name || "Edit" }]} />
       <h2 className="mb-4 text-2xl font-bold">Edit Supplier</h2>
       <Card>
         <CardHeader>
