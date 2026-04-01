@@ -1,27 +1,28 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   const start = Date.now();
 
   try {
-    // Quick DB connectivity check
     await prisma.$queryRaw`SELECT 1`;
-    const dbMs = Date.now() - start;
+    const dbLatencyMs = Date.now() - start;
 
-    return Response.json({
-      status: "healthy",
+    return NextResponse.json({
+      status: "ok",
       timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      db: { connected: true, latencyMs: dbMs },
+      db: { status: "ok", latencyMs: dbLatencyMs },
+      version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
     });
   } catch (error) {
-    return Response.json(
+    return NextResponse.json(
       {
-        status: "unhealthy",
+        status: "degraded",
         timestamp: new Date().toISOString(),
-        db: { connected: false, error: String(error) },
+        db: {
+          status: "error",
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
       },
       { status: 503 }
     );

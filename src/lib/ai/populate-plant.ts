@@ -75,15 +75,18 @@ export async function populatePlant(
 
 export async function populatePlantBatch(
   plantIds: string[],
-  regionName?: string
+  regionName?: string,
+  concurrency = 5
 ): Promise<PopulateResult[]> {
   const results: PopulateResult[] = [];
 
-  for (const plantId of plantIds) {
-    const result = await populatePlant(plantId, regionName);
-    results.push(result);
-    // Small delay between API calls
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  // Process in concurrent chunks instead of one-by-one
+  for (let i = 0; i < plantIds.length; i += concurrency) {
+    const chunk = plantIds.slice(i, i + concurrency);
+    const chunkResults = await Promise.all(
+      chunk.map((id) => populatePlant(id, regionName))
+    );
+    results.push(...chunkResults);
   }
 
   return results;
