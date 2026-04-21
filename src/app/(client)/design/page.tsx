@@ -471,6 +471,11 @@ export default function DesignPage() {
   const [layout, setLayout] = useState<DesignLayout | null>(null);
   const [generatingLayout, setGeneratingLayout] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [designId, setDesignId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem("design-id");
+  });
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const shortlistIds = useMemo(
     () => new Set(shortlist.map((s) => s.plantId)),
@@ -522,11 +527,39 @@ export default function DesignPage() {
     sessionStorage.setItem("design-goals", designGoals);
   }, [designGoals]);
 
+  useEffect(() => {
+    if (designId) sessionStorage.setItem("design-id", designId);
+    else sessionStorage.removeItem("design-id");
+  }, [designId]);
+
+  // Restore design from DB on mount
+  useEffect(() => {
+    if (!designId) return;
+    fetch(`/api/design/${designId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { design: { bedPolygon?: unknown; sunOrientation?: string; layout?: unknown } } | null) => {
+        if (!data?.design) { setDesignId(null); return; }
+        const d = data.design;
+        if (d.bedPolygon) setBedPolygon(d.bedPolygon as BedVertex[]);
+        if (d.sunOrientation) setSunOrientation(d.sunOrientation as SunOrientation);
+        if (d.layout) {
+          const l = d.layout as DesignLayout;
+          setLayout(l);
+          if (l.shortlist?.length) {
+            setShortlist(l.shortlist.map((s) => ({ ...s, addedAt: Date.now() })));
+          }
+        }
+      })
+      .catch(() => setDesignId(null));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally run once on mount
+
   async function handleGenerateLayout() {
-    if (!bedPolygon || bedPolygon.length < 3 || shortlist.length === 0) return;
+    if (!bedPolygon || bedPolygon.length < 3 || shortlist.length === 0 || !regionId) return;
     setGeneratingLayout(true);
     setGenerateError(null);
     setLayout(null);
+    setSaveStatus("idle");
     try {
       const res = await fetch("/api/design/generate-layout", {
         method: "POST",
@@ -542,7 +575,48 @@ export default function DesignPage() {
         const err = await res.json().catch(() => ({ error: "Generation failed" }));
         throw new Error((err as { error?: string }).error || "Generation failed");
       }
-      setLayout((await res.json()) as DesignLayout);
+      const generated = (await res.json()) as DesignLayout;
+      const layoutToSave: DesignLayout = {
+        ...generated,
+        shortlist: shortlist.map(({ plantId, name }) => ({ plantId, name })),
+      };
+      setLayout(layoutToSave);
+
+      // Persist to Design record
+      setSaveStatus("saving");
+      try {
+        let id = designId;
+        if (!id) {
+          const createRes = await fetch("/api/design", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ regionId }),
+          });
+          if (createRes.ok) {
+            const { design } = (await createRes.json()) as { design: { id: string } };
+            id = design.id;
+            setDesignId(id);
+          }
+        }
+        if (id) {
+          const patchRes = await fetch(`/api/design/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              bedPolygon,
+              sunOrientation,
+              shortlistPlantIds: shortlist.map((s) => s.plantId),
+              layout: layoutToSave,
+              status: "generated",
+            }),
+          });
+          setSaveStatus(patchRes.ok ? "saved" : "error");
+        } else {
+          setSaveStatus("error");
+        }
+      } catch {
+        setSaveStatus("error");
+      }
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : "Generation failed");
     } finally {
@@ -987,11 +1061,28 @@ export default function DesignPage() {
 
           {layout && bedPolygon && (
             <div className="mt-6 border-t border-border pt-4">
-              <h3 className="mb-3 text-sm font-semibold text-foreground">Layout</h3>
+              <div className="mb-3 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-foreground">Layout</h3>
+                {saveStatus === "saving" && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+                  </span>
+                )}
+                {saveStatus === "saved" && (
+                  <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                    <Check className="h-3 w-3" /> Saved
+                  </span>
+                )}
+                {saveStatus === "error" && (
+                  <span className="text-xs text-destructive">Save failed</span>
+                )}
+              </div>
               <LayoutCanvas
                 polygon={bedPolygon}
                 placements={layout.placements}
-                plantNames={Object.fromEntries(shortlist.map((s) => [s.plantId, s.name]))}
+                plantNames={Object.fromEntries(
+                  (layout.shortlist ?? shortlist).map((s) => [s.plantId, s.name])
+                )}
                 notes={layout.notes}
                 sunOrientation={sunOrientation}
               />

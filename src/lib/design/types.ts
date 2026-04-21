@@ -24,6 +24,7 @@ export interface DesignLayout {
   placements: PlantPlacement[];
   notes?: string;
   createdAt: string;
+  shortlist?: Array<{ plantId: string; name: string }>;
 }
 
 export type DesignStatus = "draft" | "generated";
