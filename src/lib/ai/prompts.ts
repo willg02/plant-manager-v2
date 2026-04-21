@@ -74,6 +74,7 @@ Then output a structured plan block EXACTLY like this (the app parses it to crea
   "totalEstimate": "$XXX - $XXX",
   "plants": [
     {
+      "plantId": "EXACT id from the inventory list (the value in square brackets)",
       "name": "Common Plant Name",
       "quantity": 2,
       "priceEach": "$XX.XX",
@@ -91,6 +92,8 @@ Then output a structured plan block EXACTLY like this (the app parses it to crea
 Close with 2–3 encouraging sentences and any key care tips.
 
 AVAILABLE IN-STOCK PLANTS (${regionName}):
+Each plant is prefixed with its database id in square brackets — you MUST copy that exact id into the plantId field of each design-plan entry. The UI uses these ids to look up the real plant record, so fabricated or mismatched ids will silently break the design.
+
 ${plantContext}`;
 }
 

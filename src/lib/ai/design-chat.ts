@@ -43,7 +43,7 @@ async function getAllInStockPlants(regionId: string): Promise<string> {
           )
           .join("; ");
 
-        return `- ${p.commonName}${p.botanicalName ? ` (${p.botanicalName})` : ""}
+        return `- [${p.id}] ${p.commonName}${p.botanicalName ? ` (${p.botanicalName})` : ""}
   Type: ${p.plantType || "N/A"} | Sun: ${p.sunRequirement || "N/A"} | Water: ${p.waterNeeds || "N/A"}
   Zones: ${p.hardinessZoneMin || "?"}–${p.hardinessZoneMax || "?"} | Size: ${p.matureHeight || "N/A"} H × ${p.matureWidth || "N/A"} W
   Bloom: ${p.bloomTime || "N/A"} (${p.bloomColor || "N/A"}) | Growth: ${p.growthRate || "N/A"}

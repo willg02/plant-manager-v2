@@ -42,6 +42,7 @@ interface Region {
 }
 
 interface DesignPlant {
+  plantId?: string; // DB id from the inventory — set when Claude returns it
   name: string;
   quantity: number;
   priceEach: string;
