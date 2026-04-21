@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseDimensionToFeet } from "@/lib/plants/parse-dimensions";
 
 export async function POST() {
+  try {
   const plants = await prisma.plant.findMany({
     where: {
       OR: [{ matureHeight: { not: null } }, { matureWidth: { not: null } }],
@@ -36,4 +37,9 @@ export async function POST() {
     unparseable,
     failures: failures.slice(0, 20), // cap the response
   });
+  } catch (err) {
+    console.error("POST /api/admin/backfill-plant-dimensions error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
