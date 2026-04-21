@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { claude } from "@/lib/claude";
 import { POPULATE_SYSTEM_PROMPT, buildPopulateUserPrompt } from "./prompts";
+import { parseDimensionToFeet } from "@/lib/plants/parse-dimensions";
 
 interface PopulateResult {
   success: boolean;
@@ -50,6 +51,8 @@ export async function populatePlant(
         soilPreference: data.soilPreference || null,
         matureHeight: data.matureHeight || null,
         matureWidth: data.matureWidth || null,
+        matureHeightFeet: parseDimensionToFeet(data.matureHeight),
+        matureWidthFeet: parseDimensionToFeet(data.matureWidth),
         growthRate: data.growthRate || null,
         bloomTime: data.bloomTime || null,
         bloomColor: data.bloomColor || null,

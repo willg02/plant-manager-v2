@@ -64,6 +64,10 @@ model Plant {
   soilPreference  String?  @db.Text
   matureHeight    String?
   matureWidth     String?
+  // Parsed numeric values in feet. Strings above stay the source of truth for display;
+  // these are derived by the backfill script and used by layout math.
+  matureHeightFeet Float?
+  matureWidthFeet  Float?
   growthRate      String?
   bloomTime       String?
   bloomColor      String?
