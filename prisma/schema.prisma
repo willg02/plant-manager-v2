@@ -20,6 +20,7 @@ model Region {
   suppliers    Supplier[]
   availability PlantAvailability[]
   chatSessions ChatSession[]
+  designs      Design[]
 }
 
 // ─── SUPPLIER ──────────────────────────────────────────
@@ -163,4 +164,46 @@ model ChatMessage {
   createdAt      DateTime    @default(now())
 
   @@index([sessionId])
+}
+
+// ─── DESIGN ────────────────────────────────────────────
+// A user-owned landscape design for a single bed.
+// Bed geometry, chat transcript, plant shortlist, and generated layout
+// all live together so the design can be resumed across sessions.
+model Design {
+  id       String  @id @default(cuid())
+  userId   String  // Clerk userId (not a DB relation)
+  regionId String
+  region   Region  @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  name String @default("Untitled design")
+
+  // Bed geometry: polygon vertices in feet, origin = bottom-left.
+  // Stored as JSON for flexibility (any vertex count, shape).
+  bedPolygon Json?
+  // Original bed image (user upload) — used for visual reference and
+  // to re-derive the polygon if they want to edit it later.
+  bedImageUrl String?
+  // Which cardinal direction the "front" (bottom edge in local coords)
+  // of the bed faces. Used to compute sun exposure per plant location.
+  sunOrientation String? // "N" | "S" | "E" | "W"
+
+  // Plants selected for this design. Auto-populated by the consult chat
+  // and editable by the user in the UI.
+  shortlistPlantIds String[] @default([])
+
+  // Chat transcript for the consult tab.
+  messages Json @default("[]")
+
+  // Generated scaled layout from the generator tab.
+  // Shape: { placements: [{plantId, x, y, spreadRadius, quantity}], notes, createdAt }
+  layout Json?
+
+  status String @default("draft") // "draft" | "generated"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@index([regionId])
 }
