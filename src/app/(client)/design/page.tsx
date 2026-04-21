@@ -34,6 +34,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { BedInput } from "@/components/design/BedInput";
+import { SupplierFilter } from "@/components/SupplierFilter";
 import { LayoutCanvas } from "@/components/design/LayoutCanvas";
 import type { BedVertex, SunOrientation, DesignLayout } from "@/lib/design/types";
 
@@ -450,6 +451,13 @@ export default function DesignPage() {
   });
 
   const [shortlistCollapsed, setShortlistCollapsed] = useState(false);
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem("design-supplierIds");
+      return saved ? (JSON.parse(saved) as string[]) : [];
+    } catch { return []; }
+  });
 
   const [bedPolygon, setBedPolygon] = useState<BedVertex[] | null>(() => {
     if (typeof window === "undefined") return null;
@@ -514,6 +522,10 @@ export default function DesignPage() {
   useEffect(() => {
     sessionStorage.setItem("design-activeTab", activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    sessionStorage.setItem("design-supplierIds", JSON.stringify(selectedSupplierIds));
+  }, [selectedSupplierIds]);
 
   useEffect(() => {
     if (bedPolygon) sessionStorage.setItem("design-bedPolygon", JSON.stringify(bedPolygon));
@@ -708,6 +720,7 @@ export default function DesignPage() {
             content,
           })),
           regionId,
+          supplierIds: selectedSupplierIds.length ? selectedSupplierIds : undefined,
           imageData: capturedImage
             ? {
                 base64: capturedImage.base64,
@@ -800,6 +813,12 @@ export default function DesignPage() {
             </SelectContent>
           </Select>
         )}
+
+        <SupplierFilter
+          regionId={regionId}
+          selectedIds={selectedSupplierIds}
+          onChange={setSelectedSupplierIds}
+        />
 
         {selectedRegion && (
           <span className="ml-auto hidden text-xs text-muted-foreground sm:block">

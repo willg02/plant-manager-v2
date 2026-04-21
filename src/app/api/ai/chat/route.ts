@@ -4,7 +4,11 @@ import { streamChat } from "@/lib/ai/chat-rag";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { regionId, messages } = body;
+    const { regionId, messages, supplierIds } = body as {
+      regionId?: string;
+      messages?: unknown;
+      supplierIds?: string[];
+    };
 
     if (!regionId) {
       return NextResponse.json(
@@ -36,7 +40,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const stream = await streamChat(regionId, messages);
+    const stream = await streamChat(regionId, messages, supplierIds?.length ? supplierIds : undefined);
 
     return new Response(stream, {
       headers: {

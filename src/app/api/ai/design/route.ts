@@ -5,7 +5,12 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { regionId, messages, imageData } = await req.json();
+    const { regionId, messages, imageData, supplierIds } = (await req.json()) as {
+      regionId?: string;
+      messages?: unknown;
+      imageData?: { base64: string; mediaType: string };
+      supplierIds?: string[];
+    };
 
     if (!regionId) {
       return NextResponse.json({ error: "regionId is required" }, { status: 400 });
@@ -18,7 +23,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const stream = await streamDesignChat(regionId, messages, imageData);
+    const stream = await streamDesignChat(regionId, messages, imageData, supplierIds?.length ? supplierIds : undefined);
 
     return new Response(stream, {
       headers: {

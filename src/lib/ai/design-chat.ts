@@ -15,17 +15,22 @@ interface ImageData {
   mediaType: string;
 }
 
-async function getAllInStockPlants(regionId: string): Promise<string> {
-  return cached(`design-plants:${regionId}`, DESIGN_CONTEXT_TTL, async () => {
+async function getAllInStockPlants(regionId: string, supplierIds?: string[]): Promise<string> {
+  const filtered = supplierIds?.length ? [...supplierIds].sort() : null;
+  const cacheKey = filtered
+    ? `design-plants:${regionId}:${filtered.join(",")}`
+    : `design-plants:${regionId}`;
+
+  return cached(cacheKey, DESIGN_CONTEXT_TTL, async () => {
+    const availWhere = filtered
+      ? { regionId, inStock: true, supplierId: { in: filtered } }
+      : { regionId, inStock: true };
+
     const plants = await prisma.plant.findMany({
-      where: {
-        availability: {
-          some: { regionId, inStock: true },
-        },
-      },
+      where: { availability: { some: availWhere } },
       include: {
         availability: {
-          where: { regionId, inStock: true },
+          where: availWhere,
           include: { supplier: { select: { name: true } } },
         },
       },
@@ -34,34 +39,48 @@ async function getAllInStockPlants(regionId: string): Promise<string> {
 
     if (plants.length === 0) return "No plants currently in stock for this region.";
 
-    return plants
-      .map((p) => {
-        const avail = p.availability
-          .map(
-            (a) =>
-              `${a.supplier.name}${a.size ? ` (${a.size})` : ""}${a.price ? ` - $${a.price}` : ""}`
-          )
-          .join("; ");
+    let header = "";
+    if (filtered) {
+      const suppliers = await prisma.supplier.findMany({
+        where: { id: { in: filtered } },
+        select: { name: true },
+        orderBy: { name: "asc" },
+      });
+      header = `[Showing plants from: ${suppliers.map((s) => s.name).join(", ")} only]\n\n`;
+    }
 
-        return `- [${p.id}] ${p.commonName}${p.botanicalName ? ` (${p.botanicalName})` : ""}
+    return (
+      header +
+      plants
+        .map((p) => {
+          const avail = p.availability
+            .map(
+              (a) =>
+                `${a.supplier.name}${a.size ? ` (${a.size})` : ""}${a.price ? ` - $${a.price}` : ""}`
+            )
+            .join("; ");
+
+          return `- [${p.id}] ${p.commonName}${p.botanicalName ? ` (${p.botanicalName})` : ""}
   Type: ${p.plantType || "N/A"} | Sun: ${p.sunRequirement || "N/A"} | Water: ${p.waterNeeds || "N/A"}
   Zones: ${p.hardinessZoneMin || "?"}–${p.hardinessZoneMax || "?"} | Size: ${p.matureHeight || "N/A"} H × ${p.matureWidth || "N/A"} W
   Bloom: ${p.bloomTime || "N/A"} (${p.bloomColor || "N/A"}) | Growth: ${p.growthRate || "N/A"}
   In stock at: ${avail}`;
-      })
-      .join("\n\n");
+        })
+        .join("\n\n")
+    );
   });
 }
 
 export async function streamDesignChat(
   regionId: string,
   messages: ChatMessage[],
-  imageData?: ImageData
+  imageData?: ImageData,
+  supplierIds?: string[]
 ): Promise<ReadableStream<Uint8Array>> {
   const region = await prisma.region.findUnique({ where: { id: regionId } });
   if (!region) throw new Error("Region not found");
 
-  const plantContext = await getAllInStockPlants(regionId);
+  const plantContext = await getAllInStockPlants(regionId, supplierIds);
   const systemPrompt = buildDesignSystemPrompt(
     region.name,
     region.climateZone,

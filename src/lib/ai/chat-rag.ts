@@ -58,31 +58,48 @@ function formatPlantContext(
 
 export async function retrievePlantContext(
   regionId: string,
-  _userMessage: string
+  _userMessage: string,
+  supplierIds?: string[]
 ): Promise<string> {
-  // Cache plant context per region — avoids re-querying the full plant list
-  // on every chat message. Invalidated after 5 minutes or on data changes.
-  return cached(`plant-context:${regionId}`, PLANT_CONTEXT_TTL, async () => {
+  const filtered = supplierIds?.length ? [...supplierIds].sort() : null;
+  const cacheKey = filtered
+    ? `plant-context:${regionId}:${filtered.join(",")}`
+    : `plant-context:${regionId}`;
+
+  return cached(cacheKey, PLANT_CONTEXT_TTL, async () => {
+    const availWhere = filtered
+      ? { regionId, supplierId: { in: filtered } }
+      : { regionId };
+
     const plants = await prisma.plant.findMany({
-      where: {
-        availability: { some: { regionId } },
-      },
+      where: { availability: { some: availWhere } },
       include: {
         availability: {
-          where: { regionId },
+          where: availWhere,
           include: { supplier: { select: { name: true } } },
         },
       },
       orderBy: { commonName: "asc" },
     });
 
-    return formatPlantContext(plants);
+    let header = "";
+    if (filtered) {
+      const suppliers = await prisma.supplier.findMany({
+        where: { id: { in: filtered } },
+        select: { name: true },
+        orderBy: { name: "asc" },
+      });
+      header = `[Showing plants from: ${suppliers.map((s) => s.name).join(", ")} only]\n\n`;
+    }
+
+    return header + formatPlantContext(plants);
   });
 }
 
 export async function streamChat(
   regionId: string,
-  messages: ChatMessage[]
+  messages: ChatMessage[],
+  supplierIds?: string[]
 ): Promise<ReadableStream<Uint8Array>> {
   const region = await prisma.region.findUnique({
     where: { id: regionId },
@@ -95,7 +112,8 @@ export async function streamChat(
   const lastUserMessage = messages.findLast((m) => m.role === "user");
   const plantContext = await retrievePlantContext(
     regionId,
-    lastUserMessage?.content || ""
+    lastUserMessage?.content || "",
+    supplierIds
   );
 
   const systemPrompt = buildChatSystemPrompt(

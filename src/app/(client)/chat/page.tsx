@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Send, Loader2, Leaf, MapPin, Sparkles } from "lucide-react";
+import { SupplierFilter } from "@/components/SupplierFilter";
 
 interface Message {
   role: "user" | "assistant";
@@ -38,6 +39,13 @@ export default function ChatPage() {
   });
   const [regions, setRegions] = useState<Region[]>([]);
   const [regionsLoading, setRegionsLoading] = useState(true);
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem("chat-supplierIds");
+      return saved ? (JSON.parse(saved) as string[]) : [];
+    } catch { return []; }
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -49,6 +57,10 @@ export default function ChatPage() {
   useEffect(() => {
     if (regionId) sessionStorage.setItem("chat-regionId", regionId);
   }, [regionId]);
+
+  useEffect(() => {
+    sessionStorage.setItem("chat-supplierIds", JSON.stringify(selectedSupplierIds));
+  }, [selectedSupplierIds]);
 
   useEffect(() => {
     fetch("/api/regions")
@@ -87,7 +99,11 @@ export default function ChatPage() {
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updatedMessages, regionId }),
+        body: JSON.stringify({
+          messages: updatedMessages,
+          regionId,
+          supplierIds: selectedSupplierIds.length ? selectedSupplierIds : undefined,
+        }),
       });
 
       if (!response.ok) throw new Error("Failed to get response");
@@ -166,6 +182,12 @@ export default function ChatPage() {
             </SelectContent>
           </Select>
         )}
+
+        <SupplierFilter
+          regionId={regionId}
+          selectedIds={selectedSupplierIds}
+          onChange={setSelectedSupplierIds}
+        />
 
         {selectedRegion && (
           <span className="ml-auto hidden text-xs text-muted-foreground sm:block">
