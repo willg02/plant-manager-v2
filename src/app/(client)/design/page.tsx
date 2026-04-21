@@ -4,6 +4,7 @@ import {
   useState,
   useRef,
   useEffect,
+  useMemo,
   type FormEvent,
   type ChangeEvent,
 } from "react";
@@ -25,6 +26,12 @@ import {
   Paintbrush,
   Download,
   Sparkles,
+  Plus,
+  Ruler,
+  MessageSquare,
+  Check,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -61,6 +68,14 @@ interface DesignPlan {
   peakSeason: string;
 }
 
+interface ShortlistItem {
+  plantId: string;
+  name: string;
+  addedAt: number;
+}
+
+type DesignTab = "consult" | "generator";
+
 // ─── Design Plan Parser ───────────────────────────────────────────────────────
 
 function parseDesignPlan(content: string): {
@@ -87,7 +102,17 @@ function parseDesignPlan(content: string): {
 
 // ─── Design Plan Card ─────────────────────────────────────────────────────────
 
-function DesignPlanCard({ plan, spaceImageDataUrl }: { plan: DesignPlan; spaceImageDataUrl?: string }) {
+function DesignPlanCard({
+  plan,
+  spaceImageDataUrl,
+  shortlistIds,
+  onAddToShortlist,
+}: {
+  plan: DesignPlan;
+  spaceImageDataUrl?: string;
+  shortlistIds: Set<string>;
+  onAddToShortlist: (plantId: string, name: string) => void;
+}) {
   const [downloading, setDownloading] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -267,13 +292,26 @@ function DesignPlanCard({ plan, spaceImageDataUrl }: { plan: DesignPlan; spaceIm
                   </div>
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">{plant.placement}</p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium capitalize text-muted-foreground">
                     {plant.role}
                   </span>
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
                     {plant.supplier}
                   </span>
+                  {plant.plantId &&
+                    (shortlistIds.has(plant.plantId) ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                        <Check className="h-2.5 w-2.5" /> In shortlist
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => onAddToShortlist(plant.plantId!, plant.name)}
+                        className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10"
+                      >
+                        <Plus className="h-2.5 w-2.5" /> Add to shortlist
+                      </button>
+                    ))}
                 </div>
               </div>
             </div>
@@ -296,7 +334,17 @@ function DesignPlanCard({ plan, spaceImageDataUrl }: { plan: DesignPlan; spaceIm
 
 // ─── Message Renderer ─────────────────────────────────────────────────────────
 
-function MessageContent({ content, spaceImageDataUrl }: { content: string; spaceImageDataUrl?: string }) {
+function MessageContent({
+  content,
+  spaceImageDataUrl,
+  shortlistIds,
+  onAddToShortlist,
+}: {
+  content: string;
+  spaceImageDataUrl?: string;
+  shortlistIds: Set<string>;
+  onAddToShortlist: (plantId: string, name: string) => void;
+}) {
   const { before, plan, after } = parseDesignPlan(content);
 
   return (
@@ -304,7 +352,14 @@ function MessageContent({ content, spaceImageDataUrl }: { content: string; space
       {before && (
         <p className="whitespace-pre-wrap text-sm leading-relaxed">{before}</p>
       )}
-      {plan && <DesignPlanCard plan={plan} spaceImageDataUrl={spaceImageDataUrl} />}
+      {plan && (
+        <DesignPlanCard
+          plan={plan}
+          spaceImageDataUrl={spaceImageDataUrl}
+          shortlistIds={shortlistIds}
+          onAddToShortlist={onAddToShortlist}
+        />
+      )}
       {after && (
         <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{after}</p>
       )}
@@ -378,6 +433,37 @@ export default function DesignPage() {
   // Track the last uploaded space photo so Generate Image can use it for img2img
   const [lastSpaceImage, setLastSpaceImage] = useState<string | undefined>(undefined);
 
+  const [activeTab, setActiveTab] = useState<DesignTab>(() => {
+    if (typeof window === "undefined") return "consult";
+    return (sessionStorage.getItem("design-activeTab") as DesignTab) || "consult";
+  });
+
+  const [shortlist, setShortlist] = useState<ShortlistItem[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem("design-shortlist");
+      return saved ? (JSON.parse(saved) as ShortlistItem[]) : [];
+    } catch { return []; }
+  });
+
+  const [shortlistCollapsed, setShortlistCollapsed] = useState(false);
+
+  const shortlistIds = useMemo(
+    () => new Set(shortlist.map((s) => s.plantId)),
+    [shortlist]
+  );
+
+  const addToShortlist = (plantId: string, name: string) => {
+    setShortlist((prev) => {
+      if (prev.some((s) => s.plantId === plantId)) return prev;
+      return [...prev, { plantId, name, addedAt: Date.now() }];
+    });
+  };
+
+  const removeFromShortlist = (plantId: string) => {
+    setShortlist((prev) => prev.filter((s) => s.plantId !== plantId));
+  };
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -391,6 +477,36 @@ export default function DesignPage() {
   useEffect(() => {
     if (regionId) sessionStorage.setItem("design-regionId", regionId);
   }, [regionId]);
+
+  useEffect(() => {
+    sessionStorage.setItem("design-shortlist", JSON.stringify(shortlist));
+  }, [shortlist]);
+
+  useEffect(() => {
+    sessionStorage.setItem("design-activeTab", activeTab);
+  }, [activeTab]);
+
+  // Auto-populate shortlist from any parsed design-plan in assistant messages.
+  // Existing items are preserved; only net-new plantIds are added.
+  useEffect(() => {
+    const seen = new Set(shortlist.map((s) => s.plantId));
+    const additions: ShortlistItem[] = [];
+    for (const msg of messages) {
+      if (msg.role !== "assistant") continue;
+      const { plan } = parseDesignPlan(msg.content);
+      if (!plan) continue;
+      for (const p of plan.plants) {
+        if (p.plantId && !seen.has(p.plantId)) {
+          seen.add(p.plantId);
+          additions.push({ plantId: p.plantId, name: p.name, addedAt: Date.now() });
+        }
+      }
+    }
+    if (additions.length > 0) {
+      setShortlist((prev) => [...prev, ...additions]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
 
   useEffect(() => {
     fetch("/api/regions")
@@ -554,6 +670,34 @@ export default function DesignPage() {
         )}
       </div>
 
+      {/* Tabs */}
+      <div className="mb-3 flex gap-1 rounded-xl border border-border bg-card p-1 shadow-sm">
+        <button
+          onClick={() => setActiveTab("consult")}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            activeTab === "consult"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <MessageSquare className="h-4 w-4" />
+          Plant Consult
+        </button>
+        <button
+          onClick={() => setActiveTab("generator")}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            activeTab === "generator"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <Ruler className="h-4 w-4" />
+          Design Generator
+        </button>
+      </div>
+
+      {activeTab === "consult" && (
+      <>
       {/* Messages */}
       <div
         ref={scrollRef}
@@ -616,7 +760,12 @@ export default function DesignPage() {
                 />
               )}
               {message.role === "assistant" ? (
-                <MessageContent content={message.content} spaceImageDataUrl={lastSpaceImage} />
+                <MessageContent
+                  content={message.content}
+                  spaceImageDataUrl={lastSpaceImage}
+                  shortlistIds={shortlistIds}
+                  onAddToShortlist={addToShortlist}
+                />
               ) : (
                 <p className="whitespace-pre-wrap text-sm">{message.content}</p>
               )}
@@ -719,6 +868,80 @@ export default function DesignPage() {
           </Button>
         </div>
       </form>
+      </>
+      )}
+
+      {activeTab === "generator" && (
+        <div className="flex-1 overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-sm">
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted border border-border shadow-sm">
+              <Ruler className="h-7 w-7 text-[color:var(--zen-accent)]" />
+            </div>
+            <p className="mt-4 text-lg font-semibold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+              Design Generator
+            </p>
+            <p className="mt-1 max-w-md text-sm text-muted-foreground">
+              Enter your bed dimensions (or upload a photo with measurements) and I&apos;ll produce a
+              scaled landscape plan using your shortlisted plants — proper spacing, sun zones, and
+              mature-size circles. Coming next.
+            </p>
+            {shortlist.length === 0 && (
+              <p className="mt-4 max-w-md text-xs text-amber-600 dark:text-amber-400">
+                Your shortlist is empty. Head back to the Plant Consult tab to build one first.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Shortlist panel — persists across tabs */}
+      <div className="mt-3 rounded-xl border border-border bg-card shadow-sm">
+        <button
+          onClick={() => setShortlistCollapsed((c) => !c)}
+          className="flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-foreground"
+        >
+          <Leaf className="h-4 w-4 text-[color:var(--zen-accent)]" />
+          <span>Shortlist</span>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+            {shortlist.length}
+          </span>
+          <span className="ml-auto text-muted-foreground">
+            {shortlistCollapsed ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </span>
+        </button>
+        {!shortlistCollapsed && (
+          <div className="border-t border-border px-4 py-3">
+            {shortlist.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Plants you pick will show up here. They get added automatically when I propose a
+                design, or tap “Add to shortlist” on any plant.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {shortlist.map((item) => (
+                  <span
+                    key={item.plantId}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-xs text-foreground"
+                  >
+                    {item.name}
+                    <button
+                      onClick={() => removeFromShortlist(item.plantId)}
+                      className="text-muted-foreground transition-colors hover:text-destructive"
+                      aria-label={`Remove ${item.name} from shortlist`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

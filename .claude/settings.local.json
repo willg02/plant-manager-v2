@@ -26,7 +26,8 @@
       "Bash(grep -r \"ChatSession\\\\|ChatMessage\" 'C:\\\\Users\\\\WGibs\\\\Plant Manager V2\\\\src' --include=*.ts --include=*.tsx)",
       "Bash(find 'C:\\\\Users\\\\WGibs\\\\Plant Manager V2\\\\src' -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
       "Bash(npx vitest *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)"
     ]
   }
 }
