@@ -33,6 +33,8 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import { BedInput } from "@/components/design/BedInput";
+import type { BedVertex, SunOrientation } from "@/lib/design/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -448,6 +450,19 @@ export default function DesignPage() {
 
   const [shortlistCollapsed, setShortlistCollapsed] = useState(false);
 
+  const [bedPolygon, setBedPolygon] = useState<BedVertex[] | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const saved = sessionStorage.getItem("design-bedPolygon");
+      return saved ? (JSON.parse(saved) as BedVertex[]) : null;
+    } catch { return null; }
+  });
+
+  const [sunOrientation, setSunOrientation] = useState<SunOrientation>(() => {
+    if (typeof window === "undefined") return "S";
+    return (sessionStorage.getItem("design-sunOrientation") as SunOrientation) || "S";
+  });
+
   const shortlistIds = useMemo(
     () => new Set(shortlist.map((s) => s.plantId)),
     [shortlist]
@@ -485,6 +500,14 @@ export default function DesignPage() {
   useEffect(() => {
     sessionStorage.setItem("design-activeTab", activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (bedPolygon) sessionStorage.setItem("design-bedPolygon", JSON.stringify(bedPolygon));
+  }, [bedPolygon]);
+
+  useEffect(() => {
+    sessionStorage.setItem("design-sunOrientation", sunOrientation);
+  }, [sunOrientation]);
 
   // Auto-populate shortlist from any parsed design-plan in assistant messages.
   // Existing items are preserved; only net-new plantIds are added.
@@ -872,24 +895,32 @@ export default function DesignPage() {
       )}
 
       {activeTab === "generator" && (
-        <div className="flex-1 overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted border border-border shadow-sm">
-              <Ruler className="h-7 w-7 text-[color:var(--zen-accent)]" />
+        <div className="flex-1 overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6">
+          <BedInput
+            polygon={bedPolygon}
+            onPolygonChange={setBedPolygon}
+            sunOrientation={sunOrientation}
+            onSunOrientationChange={setSunOrientation}
+          />
+
+          <div className="mt-6 flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs text-muted-foreground">
+              {shortlist.length === 0 ? (
+                <span className="text-amber-600 dark:text-amber-400">
+                  Your shortlist is empty — build one in the Plant Consult tab first.
+                </span>
+              ) : (
+                <>Shortlist: {shortlist.length} {shortlist.length === 1 ? "plant" : "plants"} ready.</>
+              )}
             </div>
-            <p className="mt-4 text-lg font-semibold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
-              Design Generator
-            </p>
-            <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              Enter your bed dimensions (or upload a photo with measurements) and I&apos;ll produce a
-              scaled landscape plan using your shortlisted plants — proper spacing, sun zones, and
-              mature-size circles. Coming next.
-            </p>
-            {shortlist.length === 0 && (
-              <p className="mt-4 max-w-md text-xs text-amber-600 dark:text-amber-400">
-                Your shortlist is empty. Head back to the Plant Consult tab to build one first.
-              </p>
-            )}
+            <Button
+              disabled={shortlist.length === 0 || !bedPolygon || bedPolygon.length < 3}
+              className="bg-primary text-primary-foreground"
+              title="Generate scaled landscape plan (coming in Phase 2c)"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Generate landscape plan
+            </Button>
           </div>
         </div>
       )}
