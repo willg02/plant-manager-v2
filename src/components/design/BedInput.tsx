@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { BedCanvas } from "./BedCanvas";
 import type { BedVertex, SunOrientation } from "@/lib/design/types";
-import { Square, Pentagon } from "lucide-react";
+import { Square, Pentagon, ImagePlus, Loader2, X } from "lucide-react";
 
-type ShapeMode = "rectangle" | "freeform";
+type ShapeMode = "rectangle" | "freeform" | "upload";
 
 interface BedInputProps {
   polygon: BedVertex[] | null;
@@ -56,6 +56,22 @@ export function BedInput({
   const [rectWidth, setRectWidth] = useState<string>("12");
   const [rectDepth, setRectDepth] = useState<string>("6");
 
+  // Upload-mode state
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem("design-bedImageUrl");
+  });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [refEdgeDescription, setRefEdgeDescription] = useState("front edge");
+  const [refEdgeLength, setRefEdgeLength] = useState("12");
+  const [extractingPolygon, setExtractingPolygon] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
+  const [extractNotes, setExtractNotes] = useState<{
+    reasoning: string;
+    confidence: "high" | "medium" | "low";
+  } | null>(null);
+
   useEffect(() => {
     sessionStorage.setItem("design-bed-mode", mode);
   }, [mode]);
@@ -75,6 +91,74 @@ export function BedInput({
     const d = parseFloat(rectDepth);
     if (!(w > 0 && d > 0)) return;
     onPolygonChange(rectanglePolygon(w, d));
+  }
+
+  async function handleImageFile(file: File) {
+    setUploadError(null);
+    setUploadingImage(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/design/bed-image", { method: "POST", body: form });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || "Upload failed");
+      }
+      const data = (await res.json()) as { url: string };
+      setUploadedImageUrl(data.url);
+      sessionStorage.setItem("design-bedImageUrl", data.url);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  function clearUploadedImage() {
+    setUploadedImageUrl(null);
+    setExtractNotes(null);
+    sessionStorage.removeItem("design-bedImageUrl");
+  }
+
+  async function extractPolygon() {
+    if (!uploadedImageUrl) return;
+    const length = parseFloat(refEdgeLength);
+    if (!(length > 0)) {
+      setExtractError("Enter a positive reference edge length.");
+      return;
+    }
+
+    setExtractError(null);
+    setExtractingPolygon(true);
+    setExtractNotes(null);
+    try {
+      const res = await fetch("/api/design/extract-bed-polygon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageUrl: uploadedImageUrl,
+          referenceEdgeDescription: refEdgeDescription.trim() || "reference edge",
+          referenceEdgeLengthFeet: length,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Extraction failed" }));
+        throw new Error(err.error || "Extraction failed");
+      }
+      const data = (await res.json()) as {
+        vertices: BedVertex[];
+        reasoning: string;
+        confidence: "high" | "medium" | "low";
+      };
+      onPolygonChange(data.vertices);
+      setExtractNotes({ reasoning: data.reasoning, confidence: data.confidence });
+      // Jump to freeform so they can adjust
+      setMode("freeform");
+    } catch (err) {
+      setExtractError(err instanceof Error ? err.message : "Extraction failed");
+    } finally {
+      setExtractingPolygon(false);
+    }
   }
 
   const area = polygon && polygon.length >= 3 ? polygonArea(polygon) : 0;
@@ -106,6 +190,17 @@ export function BedInput({
           >
             <Pentagon className="h-4 w-4" />
             Freeform polygon
+          </button>
+          <button
+            onClick={() => setMode("upload")}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+              mode === "upload"
+                ? "border-primary bg-primary/10 text-foreground"
+                : "border-border bg-card text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            <ImagePlus className="h-4 w-4" />
+            Upload image
           </button>
         </div>
 
@@ -147,6 +242,118 @@ export function BedInput({
             Drag any vertex to reshape. Click the small dot at the midpoint of any edge to add a new
             vertex. Shift-click a vertex to remove it (minimum 3).
           </p>
+        )}
+
+        {mode === "upload" && (
+          <div className="mt-3 space-y-3">
+            {/* File picker */}
+            {!uploadedImageUrl && (
+              <div>
+                <input
+                  id="bed-image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageFile(file);
+                    e.target.value = "";
+                  }}
+                />
+                <label
+                  htmlFor="bed-image-upload"
+                  className="inline-flex cursor-pointer items-center gap-2 rounded border border-border bg-card px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  {uploadingImage ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-4 w-4" />
+                  )}
+                  {uploadingImage ? "Uploading…" : "Choose image"}
+                </label>
+                {uploadError && (
+                  <p className="mt-1 text-xs text-destructive">{uploadError}</p>
+                )}
+              </div>
+            )}
+
+            {/* Image preview */}
+            {uploadedImageUrl && (
+              <div className="relative w-fit">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={uploadedImageUrl}
+                  alt="Bed reference"
+                  className="max-h-48 rounded border border-border object-contain"
+                />
+                <button
+                  onClick={clearUploadedImage}
+                  aria-label="Remove image"
+                  className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm hover:bg-muted"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
+            {/* Reference edge inputs + Extract */}
+            {uploadedImageUrl && (
+              <div className="space-y-2">
+                <label className="flex flex-col text-xs text-muted-foreground">
+                  Reference edge description
+                  <input
+                    type="text"
+                    value={refEdgeDescription}
+                    onChange={(e) => setRefEdgeDescription(e.target.value)}
+                    placeholder="e.g. front edge"
+                    className="mt-1 rounded border border-border bg-card px-2 py-1 text-sm text-foreground"
+                  />
+                </label>
+                <label className="flex flex-col text-xs text-muted-foreground">
+                  Reference edge length (ft)
+                  <input
+                    type="number"
+                    min="0.5"
+                    step="0.5"
+                    value={refEdgeLength}
+                    onChange={(e) => setRefEdgeLength(e.target.value)}
+                    className="mt-1 w-28 rounded border border-border bg-card px-2 py-1 text-sm text-foreground"
+                  />
+                </label>
+                <button
+                  onClick={extractPolygon}
+                  disabled={extractingPolygon}
+                  className="flex items-center gap-2 rounded border border-primary bg-primary/10 px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-primary/20 disabled:opacity-50"
+                >
+                  {extractingPolygon && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {extractingPolygon ? "Extracting…" : "Extract polygon"}
+                </button>
+
+                {extractError && (
+                  <p className="text-xs text-destructive">{extractError}</p>
+                )}
+
+                {extractNotes && (
+                  <div className="rounded border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
+                    <span
+                      className={`mr-1 font-semibold ${
+                        extractNotes.confidence === "high"
+                          ? "text-green-600"
+                          : extractNotes.confidence === "medium"
+                            ? "text-yellow-600"
+                            : "text-destructive"
+                      }`}
+                    >
+                      {extractNotes.confidence.charAt(0).toUpperCase() +
+                        extractNotes.confidence.slice(1)}{" "}
+                      confidence.
+                    </span>
+                    {extractNotes.reasoning}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </section>
 
