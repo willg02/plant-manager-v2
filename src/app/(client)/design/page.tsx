@@ -34,7 +34,8 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { BedInput } from "@/components/design/BedInput";
-import type { BedVertex, SunOrientation } from "@/lib/design/types";
+import { LayoutCanvas } from "@/components/design/LayoutCanvas";
+import type { BedVertex, SunOrientation, DesignLayout } from "@/lib/design/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -463,6 +464,14 @@ export default function DesignPage() {
     return (sessionStorage.getItem("design-sunOrientation") as SunOrientation) || "S";
   });
 
+  const [designGoals, setDesignGoals] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return sessionStorage.getItem("design-goals") || "";
+  });
+  const [layout, setLayout] = useState<DesignLayout | null>(null);
+  const [generatingLayout, setGeneratingLayout] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
   const shortlistIds = useMemo(
     () => new Set(shortlist.map((s) => s.plantId)),
     [shortlist]
@@ -508,6 +517,38 @@ export default function DesignPage() {
   useEffect(() => {
     sessionStorage.setItem("design-sunOrientation", sunOrientation);
   }, [sunOrientation]);
+
+  useEffect(() => {
+    sessionStorage.setItem("design-goals", designGoals);
+  }, [designGoals]);
+
+  async function handleGenerateLayout() {
+    if (!bedPolygon || bedPolygon.length < 3 || shortlist.length === 0) return;
+    setGeneratingLayout(true);
+    setGenerateError(null);
+    setLayout(null);
+    try {
+      const res = await fetch("/api/design/generate-layout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bedPolygon,
+          shortlist: shortlist.map(({ plantId, name }) => ({ plantId, name })),
+          goals: designGoals.trim() || undefined,
+          sunOrientation,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Generation failed" }));
+        throw new Error((err as { error?: string }).error || "Generation failed");
+      }
+      setLayout((await res.json()) as DesignLayout);
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : "Generation failed");
+    } finally {
+      setGeneratingLayout(false);
+    }
+  }
 
   // Auto-populate shortlist from any parsed design-plan in assistant messages.
   // Existing items are preserved; only net-new plantIds are added.
@@ -898,30 +939,64 @@ export default function DesignPage() {
         <div className="flex-1 overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6">
           <BedInput
             polygon={bedPolygon}
-            onPolygonChange={setBedPolygon}
+            onPolygonChange={(p) => { setBedPolygon(p); setLayout(null); }}
             sunOrientation={sunOrientation}
-            onSunOrientationChange={setSunOrientation}
+            onSunOrientationChange={(o) => { setSunOrientation(o); setLayout(null); }}
           />
 
-          <div className="mt-6 flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-muted-foreground">
-              {shortlist.length === 0 ? (
-                <span className="text-amber-600 dark:text-amber-400">
-                  Your shortlist is empty — build one in the Plant Consult tab first.
-                </span>
-              ) : (
-                <>Shortlist: {shortlist.length} {shortlist.length === 1 ? "plant" : "plants"} ready.</>
-              )}
+          <div className="mt-6 space-y-3 border-t border-border pt-4">
+            <label className="flex flex-col text-xs text-muted-foreground">
+              Design goals (optional)
+              <input
+                type="text"
+                value={designGoals}
+                onChange={(e) => setDesignGoals(e.target.value)}
+                placeholder="e.g. low-maintenance, cottage style, year-round colour"
+                className="mt-1 rounded border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </label>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-muted-foreground">
+                {shortlist.length === 0 ? (
+                  <span className="text-amber-600 dark:text-amber-400">
+                    Your shortlist is empty — build one in the Plant Consult tab first.
+                  </span>
+                ) : (
+                  <>Shortlist: {shortlist.length} {shortlist.length === 1 ? "plant" : "plants"} ready.</>
+                )}
+              </div>
+              <Button
+                disabled={shortlist.length === 0 || !bedPolygon || bedPolygon.length < 3 || generatingLayout}
+                onClick={handleGenerateLayout}
+                className="bg-primary text-primary-foreground"
+              >
+                {generatingLayout ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                {generatingLayout ? "Generating…" : "Generate landscape plan"}
+              </Button>
             </div>
-            <Button
-              disabled={shortlist.length === 0 || !bedPolygon || bedPolygon.length < 3}
-              className="bg-primary text-primary-foreground"
-              title="Generate scaled landscape plan (coming in Phase 2c)"
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              Generate landscape plan
-            </Button>
+
+            {generateError && (
+              <p className="text-xs text-destructive">{generateError}</p>
+            )}
           </div>
+
+          {layout && bedPolygon && (
+            <div className="mt-6 border-t border-border pt-4">
+              <h3 className="mb-3 text-sm font-semibold text-foreground">Layout</h3>
+              <LayoutCanvas
+                polygon={bedPolygon}
+                placements={layout.placements}
+                plantNames={Object.fromEntries(shortlist.map((s) => [s.plantId, s.name]))}
+                notes={layout.notes}
+                sunOrientation={sunOrientation}
+              />
+            </div>
+          )}
         </div>
       )}
 
