@@ -17,7 +17,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { CheckCircle, XCircle, Download, RefreshCw, Info } from "lucide-react";
+import { CheckCircle, XCircle, Download, RefreshCw, Info, Plus, Trash2 } from "lucide-react";
 import type { PikePlant } from "@/app/api/scraper/pike/route";
 import type { LowesPlant, LowesStore } from "@/app/api/scraper/lowes/route";
 
@@ -306,6 +306,7 @@ function PikeScraper() {
 
 // ── Lowe's scraper panel ──────────────────────────────────────────────────────
 function LowesScraper() {
+  const [stores, setStores] = useState<LowesStore[]>(ALL_LOWES_STORES);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -314,6 +315,8 @@ function LowesScraper() {
     total: number;
     stores: LowesStore[];
   } | null>(null);
+  const [addId, setAddId] = useState("");
+  const [addLabel, setAddLabel] = useState("");
 
   function toggleStore(id: string) {
     setSelected((prev) => {
@@ -323,15 +326,29 @@ function LowesScraper() {
     });
   }
 
-  function selectAll() { setSelected(new Set(ALL_LOWES_STORES.map((s) => s.id))); }
+  function selectAll() { setSelected(new Set(stores.map((s) => s.id))); }
   function selectNone() { setSelected(new Set()); }
+
+  function addStore() {
+    const id = addId.trim().padStart(4, "0");
+    const label = addLabel.trim();
+    if (!id || !label || stores.some((s) => s.id === id)) return;
+    setStores((prev) => [...prev, { id, label }]);
+    setAddId("");
+    setAddLabel("");
+  }
+
+  function removeStore(id: string) {
+    setStores((prev) => prev.filter((s) => s.id !== id));
+    setSelected((prev) => { const n = new Set(prev); n.delete(id); return n; });
+  }
 
   async function runScraper() {
     if (selected.size === 0) return;
     setLoading(true);
     setError(null);
     setResult(null);
-    const selectedStores = ALL_LOWES_STORES.filter((s) => selected.has(s.id));
+    const selectedStores = stores.filter((s) => selected.has(s.id));
     try {
       const res = await fetch("/api/scraper/lowes", {
         method: "POST",
@@ -367,7 +384,7 @@ function LowesScraper() {
                 (free tier: ~100 store fetches/month). Allow 30–60 s per store.
               </p>
               <p className="text-xs text-blue-700 dark:text-blue-400">
-                Store numbers are the 4-digit suffix from lowes.com/store/GA-City/<strong>XXXX</strong>
+                Find your store number in the URL: lowes.com/store/GA-Monroe/<strong>XXXX</strong>
               </p>
             </div>
           </div>
@@ -377,39 +394,75 @@ function LowesScraper() {
       <Card>
         <CardHeader>
           <CardTitle>Lowe&apos;s — Select Locations</CardTitle>
-          <CardDescription>Choose one or more stores to check plant inventory.</CardDescription>
+          <CardDescription>
+            Choose stores to check. Add or remove locations to match your area.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={selectAll}>Select All</Button>
             <Button variant="outline" size="sm" onClick={selectNone}>Clear</Button>
             <span className="text-sm text-muted-foreground self-center">
-              {selected.size} of {ALL_LOWES_STORES.length} selected
+              {selected.size} of {stores.length} selected
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <StoreGroup
-              label="Georgia"
-              stores={LOWES_STORES_GA}
-              selected={selected}
-              onToggle={toggleStore}
-              getKey={(s) => s.id}
-              accent="accent-blue-600"
-              sublabel={(s) => `#${s.id}`}
-            />
-            <StoreGroup
-              label="North Carolina"
-              stores={LOWES_STORES_NC}
-              selected={selected}
-              onToggle={toggleStore}
-              getKey={(s) => s.id}
-              accent="accent-blue-600"
-              sublabel={(s) => `#${s.id}`}
-            />
+          {/* Store list */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+            {stores.map((store) => (
+              <div key={store.id} className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none flex-1 min-w-0">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(store.id)}
+                    onChange={() => toggleStore(store.id)}
+                    className="h-4 w-4 accent-blue-600 shrink-0"
+                  />
+                  <span className="text-sm truncate">{store.label}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">#{store.id}</span>
+                </label>
+                <button
+                  onClick={() => removeStore(store.id)}
+                  className="text-muted-foreground hover:text-destructive shrink-0 transition-colors"
+                  title="Remove store"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
 
-          <Button onClick={runScraper} disabled={selected.size === 0 || loading} className="mt-2">
+          {/* Add store */}
+          <div className="flex items-end gap-2 pt-3 border-t border-border">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted-foreground">Store #</label>
+              <input
+                type="text"
+                maxLength={4}
+                placeholder="0879"
+                value={addId}
+                onChange={(e) => setAddId(e.target.value.replace(/\D/g, ""))}
+                onKeyDown={(e) => e.key === "Enter" && addStore()}
+                className="w-20 rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground"
+              />
+            </div>
+            <div className="flex flex-col gap-1 flex-1">
+              <label className="text-xs text-muted-foreground">Label</label>
+              <input
+                type="text"
+                placeholder="Monroe, GA"
+                value={addLabel}
+                onChange={(e) => setAddLabel(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addStore()}
+                className="rounded border border-border bg-card px-2 py-1.5 text-sm text-foreground"
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={addStore} className="shrink-0">
+              <Plus className="h-4 w-4 mr-1" />Add
+            </Button>
+          </div>
+
+          <Button onClick={runScraper} disabled={selected.size === 0 || loading}>
             {loading
               ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Scraping… (30–60 s per store)</>
               : "Run Scraper"}
