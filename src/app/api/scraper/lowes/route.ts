@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+export const maxDuration = 300; // ScraperAPI render=true is ~30–60 s per store
+
 // Lowe's plant category page — plants + live goods
 const LOWES_CATEGORY_URL =
   "https://www.lowes.com/pl/Plants-Live-plants-Trees-shrubs-bushes/4294511668";
