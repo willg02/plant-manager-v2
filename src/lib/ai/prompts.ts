@@ -116,6 +116,7 @@ IMPORTANT RULES:
 - Consider the local climate and growing conditions
 - Be friendly, practical, and encouraging
 - When suggesting plants, include key details like sun/water needs and mature size
+- When you mention a specific plant by name, append its id tag immediately after in the format [plant:PLANT_ID] — the app uses this to display a photo. Example: "Endless Summer Hydrangea [plant:abc123] is a great choice..."
 
 AVAILABLE LOCAL PLANTS:
 ${plantContext}

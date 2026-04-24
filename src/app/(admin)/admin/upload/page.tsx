@@ -63,7 +63,8 @@ export default function UploadPage() {
   const [listTag, setListTag] = useState("");
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<{
-    created: number;
+    added: number;
+    updated: number;
     errors: number;
     removed: number;
     plantIds: string[];
@@ -639,27 +640,25 @@ export default function UploadPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className={`grid gap-4 ${syncMode ? "grid-cols-3" : "grid-cols-2"}`}>
+            <div className={`grid gap-4 ${syncMode ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
               <div className="rounded-lg border p-4">
-                <p className="text-2xl font-bold text-green-600">
-                  {result.created}
-                </p>
-                <p className="text-sm text-muted-foreground">Plants added / updated</p>
+                <p className="text-2xl font-bold text-green-600">{result.added}</p>
+                <p className="text-sm text-muted-foreground">New plants</p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-2xl font-bold text-blue-600">{result.updated}</p>
+                <p className="text-sm text-muted-foreground">Updated</p>
               </div>
               {syncMode && (
                 <div className="rounded-lg border p-4">
-                  <p className="text-2xl font-bold text-amber-600">
-                    {result.removed}
-                  </p>
+                  <p className="text-2xl font-bold text-amber-600">{result.removed}</p>
                   <p className="text-sm text-muted-foreground">
                     Removed{listTag.trim() ? ` (${listTag.trim()})` : ""}
                   </p>
                 </div>
               )}
               <div className="rounded-lg border p-4">
-                <p className="text-2xl font-bold text-red-600">
-                  {result.errors}
-                </p>
+                <p className="text-2xl font-bold text-red-600">{result.errors}</p>
                 <p className="text-sm text-muted-foreground">Errors</p>
               </div>
             </div>

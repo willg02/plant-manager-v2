@@ -17,6 +17,15 @@ interface Message {
   content: string;
 }
 
+function extractPlantIds(text: string): string[] {
+  const matches = [...text.matchAll(/\[plant:([a-z0-9]+)\]/g)];
+  return [...new Set(matches.map((m) => m[1]))];
+}
+
+function stripPlantMarkers(text: string): string {
+  return text.replace(/\s*\[plant:[a-z0-9]+\]/g, "");
+}
+
 interface Region {
   id: string;
   name: string;
@@ -46,6 +55,7 @@ export default function ChatPage() {
       return saved ? (JSON.parse(saved) as string[]) : [];
     } catch { return []; }
   });
+  const [plantImages, setPlantImages] = useState<Record<string, string | null>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -77,6 +87,22 @@ export default function ChatPage() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+  }, [messages]);
+
+  // Fetch images for any plant IDs newly appearing in completed assistant messages
+  useEffect(() => {
+    const allIds = messages
+      .filter((m) => m.role === "assistant")
+      .flatMap((m) => extractPlantIds(m.content));
+    const newIds = [...new Set(allIds)].filter((id) => !(id in plantImages));
+    if (newIds.length === 0) return;
+    fetch(`/api/plants/images?ids=${newIds.join(",")}`)
+      .then((r) => r.json())
+      .then((data: { imageMap: Record<string, string | null> }) => {
+        setPlantImages((prev) => ({ ...prev, ...data.imageMap }));
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
   async function handleSubmit(e: FormEvent) {
@@ -255,7 +281,33 @@ export default function ChatPage() {
                   : "bg-muted text-foreground"
               }`}
             >
-              <p className="whitespace-pre-wrap">{message.content}</p>
+              {message.role === "assistant" ? (
+                <>
+                  <p className="whitespace-pre-wrap">
+                    {stripPlantMarkers(message.content)}
+                  </p>
+                  {(() => {
+                    const ids = extractPlantIds(message.content).filter(
+                      (id) => plantImages[id]
+                    );
+                    if (ids.length === 0) return null;
+                    return (
+                      <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                        {ids.map((id) => (
+                          <img
+                            key={id}
+                            src={plantImages[id]!}
+                            alt=""
+                            className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <p className="whitespace-pre-wrap">{message.content}</p>
+              )}
             </div>
           </div>
         ))}

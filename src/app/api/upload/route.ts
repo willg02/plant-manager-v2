@@ -75,7 +75,8 @@ export async function POST(request: NextRequest) {
     });
 
     const plantIds: string[] = [];
-    let successCount = 0;
+    let addedCount = 0;
+    let updatedCount = 0;
     let errorCount = 0;
     const errors: Array<{ row: number; error: string }> = [];
     const normalizedTag = listTag?.trim() || null;
@@ -130,6 +131,7 @@ export async function POST(request: NextRequest) {
               listTag: normalizedTag,
             },
           });
+          updatedCount++;
         } else {
           await prisma.plantAvailability.create({
             data: {
@@ -144,10 +146,10 @@ export async function POST(request: NextRequest) {
               listTag: normalizedTag,
             },
           });
+          addedCount++;
         }
 
         plantIds.push(plant.id);
-        successCount++;
       } catch (err) {
         errorCount++;
         errors.push({
@@ -175,6 +177,8 @@ export async function POST(request: NextRequest) {
       removedCount = count;
     }
 
+    const successCount = addedCount + updatedCount;
+
     // Update upload log
     await prisma.uploadLog.update({
       where: { id: uploadLog.id },
@@ -192,7 +196,8 @@ export async function POST(request: NextRequest) {
     invalidateCache("design-plants:");
 
     return NextResponse.json({
-      created: successCount,
+      added: addedCount,
+      updated: updatedCount,
       errors: errorCount,
       removed: removedCount,
       plantIds,

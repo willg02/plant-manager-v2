@@ -77,10 +77,13 @@ export default async function AdminPlantsPage({ searchParams }: Props) {
     where.aiPopulated = true;
   } else if (status === "pending") {
     where.aiPopulated = false;
+  } else if (status === "low-confidence") {
+    where.aiPopulated = true;
+    where.aiConfidence = "low";
   }
 
   // Parallel queries for data + counts
-  const [plants, totalCount, pendingCount, allPlantsCount] = await Promise.all([
+  const [plants, totalCount, pendingCount, allPlantsCount, lowConfidenceCount] = await Promise.all([
     prisma.plant.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -96,6 +99,7 @@ export default async function AdminPlantsPage({ searchParams }: Props) {
     prisma.plant.count({ where }),
     prisma.plant.count({ where: { aiPopulated: false } }),
     prisma.plant.count(),
+    prisma.plant.count({ where: { aiPopulated: true, aiConfidence: "low" } }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -158,6 +162,7 @@ export default async function AdminPlantsPage({ searchParams }: Props) {
           options={[
             { value: "populated", label: "Populated" },
             { value: "pending", label: "Pending" },
+            { value: "low-confidence", label: `Low Confidence${lowConfidenceCount > 0 ? ` (${lowConfidenceCount})` : ""}` },
           ]}
         />
       </div>
@@ -209,9 +214,15 @@ export default async function AdminPlantsPage({ searchParams }: Props) {
                   <TableCell>{plant.plantType || "\u2014"}</TableCell>
                   <TableCell>
                     {plant.aiPopulated ? (
-                      <Badge className="bg-green-100 text-green-700">
-                        Populated
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge className="bg-green-100 text-green-700">Populated</Badge>
+                        {plant.aiConfidence === "low" && (
+                          <Badge className="bg-red-100 text-red-700">Low confidence</Badge>
+                        )}
+                        {plant.aiConfidence === "medium" && (
+                          <Badge className="bg-yellow-100 text-yellow-700">Medium</Badge>
+                        )}
+                      </div>
                     ) : (
                       <Badge className="bg-yellow-100 text-yellow-700">
                         Pending

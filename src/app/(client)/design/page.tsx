@@ -121,6 +121,18 @@ function DesignPlanCard({
   const [generatingImage, setGeneratingImage] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [plantImages, setPlantImages] = useState<Record<string, string | null>>({});
+
+  useEffect(() => {
+    const ids = plan.plants.map((p) => p.plantId).filter(Boolean) as string[];
+    if (ids.length === 0) return;
+    fetch(`/api/plants/images?ids=${ids.join(",")}`)
+      .then((r) => r.json())
+      .then((data: { imageMap: Record<string, string | null> }) =>
+        setPlantImages(data.imageMap)
+      )
+      .catch(() => {});
+  }, [plan.plants]);
 
   async function handleGenerateImage() {
     setGeneratingImage(true);
@@ -276,8 +288,18 @@ function DesignPlanCard({
 
           return (
             <div key={i} className="flex items-start gap-3 py-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
-                <Leaf className="h-4 w-4 text-[color:var(--zen-accent)]" />
+              <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-muted">
+                {plant.plantId && plantImages[plant.plantId] ? (
+                  <img
+                    src={plantImages[plant.plantId]!}
+                    alt={plant.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Leaf className="h-4 w-4 text-[color:var(--zen-accent)]" />
+                  </div>
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
