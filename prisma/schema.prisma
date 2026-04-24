@@ -112,6 +112,7 @@ model PlantAvailability {
   size       String?
   inStock    Boolean  @default(true)
   stockNotes String?
+  listTag    String?  // e.g. "Shrubs", "Trees" — scopes sync-mode deletions
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -121,6 +122,7 @@ model PlantAvailability {
   @@index([supplierId])
   @@index([regionId])
   @@index([inStock])
+  @@index([listTag])
 }
 
 // ─── UPLOAD LOG ────────────────────────────────────────

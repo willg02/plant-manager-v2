@@ -87,7 +87,7 @@ function parseDesignPlan(content: string): {
   plan: DesignPlan | null;
   after: string;
 } {
-  const match = content.match(/```design-plan\n([\s\S]*?)```/);
+  const match = content.match(/```design-plan[^\n]*\n([\s\S]*?)```/);
   if (!match) return { before: content, plan: null, after: "" };
 
   try {
@@ -688,6 +688,47 @@ export default function DesignPage() {
     }
   }
 
+  async function triggerPlanGeneration() {
+    if (isLoading || !regionId) return;
+    const trigger = "Please generate a complete design plan now based on what I've shared.";
+    const userMessage: Message = { role: "user", content: trigger };
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/ai/design", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: updatedMessages.map(({ role, content }) => ({ role, content })),
+          regionId,
+          supplierIds: selectedSupplierIds.length ? selectedSupplierIds : undefined,
+        }),
+      });
+      if (!res.ok) throw new Error("Request failed");
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = "";
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          assistantContent += decoder.decode(value, { stream: true });
+          setMessages((prev) => {
+            const updated = [...prev];
+            updated[updated.length - 1] = { role: "assistant", content: assistantContent };
+            return updated;
+          });
+        }
+      }
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", content: "Sorry, something went wrong. Please try again." }]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const trimmed = input.trim();
@@ -1024,6 +1065,20 @@ export default function DesignPage() {
             <Send className="h-3.5 w-3.5" />
           </Button>
         </div>
+
+        {/* Explicit plan trigger — visible once at least one user message exists */}
+        {messages.some((m) => m.role === "user") && (
+          <button
+            type="button"
+            disabled={isLoading || !regionId}
+            onClick={() => triggerPlanGeneration()}
+            title="Generate a design plan now"
+            className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3 text-xs font-medium text-primary shadow-sm transition-all hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Generate plan
+          </button>
+        )}
       </form>
       </>
       )}

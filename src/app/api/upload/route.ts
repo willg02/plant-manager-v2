@@ -20,11 +20,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { supplierId, regionId, fileName, rows } = body as {
+    const { supplierId, regionId, fileName, rows, syncMode, listTag } = body as {
       supplierId: string;
       regionId: string;
       fileName?: string;
       rows: UploadRow[];
+      syncMode?: boolean;
+      listTag?: string; // e.g. "Shrubs", "Trees" — scopes sync deletions
     };
 
     if (!supplierId || !regionId) {
@@ -76,6 +78,7 @@ export async function POST(request: NextRequest) {
     let successCount = 0;
     let errorCount = 0;
     const errors: Array<{ row: number; error: string }> = [];
+    const normalizedTag = listTag?.trim() || null;
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -124,6 +127,7 @@ export async function POST(request: NextRequest) {
                 : existingAvail.price,
               inStock: row.inStock !== undefined ? row.inStock : existingAvail.inStock,
               regionId,
+              listTag: normalizedTag,
             },
           });
         } else {
@@ -137,6 +141,7 @@ export async function POST(request: NextRequest) {
                 : null,
               size: row.size || null,
               inStock: row.inStock !== undefined ? row.inStock : true,
+              listTag: normalizedTag,
             },
           });
         }
@@ -150,6 +155,24 @@ export async function POST(request: NextRequest) {
           error: err instanceof Error ? err.message : "Unknown error",
         });
       }
+    }
+
+    // ── Sync mode: remove availability records not in this upload ────────────
+    // Scope: same supplier + same listTag (or all records if no tag provided).
+    let removedCount = 0;
+    if (syncMode && plantIds.length > 0) {
+      const deleteWhere: Prisma.PlantAvailabilityWhereInput = {
+        supplierId,
+        plantId: { notIn: plantIds },
+        ...(normalizedTag !== null
+          ? { listTag: normalizedTag }
+          : {}),
+      };
+
+      const { count } = await prisma.plantAvailability.deleteMany({
+        where: deleteWhere,
+      });
+      removedCount = count;
     }
 
     // Update upload log
@@ -171,6 +194,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       created: successCount,
       errors: errorCount,
+      removed: removedCount,
       plantIds,
       uploadLogId: uploadLog.id,
       errorDetails: errors.length > 0 ? errors : undefined,

@@ -67,6 +67,7 @@ const LOWES_STORES_GA: LowesStore[] = [
 const LOWES_STORES_NC: LowesStore[] = [
   { id: "2546", label: "Ballantyne" },
   { id: "0432", label: "Matthews" },
+  { id: "0680", label: "Monroe" },
   { id: "2579", label: "Huntersville" },
   { id: "2614", label: "Mooresville" },
 ];

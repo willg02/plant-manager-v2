@@ -59,10 +59,13 @@ export default function UploadPage() {
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  const [syncMode, setSyncMode] = useState(false);
+  const [listTag, setListTag] = useState("");
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<{
     created: number;
     errors: number;
+    removed: number;
     plantIds: string[];
   } | null>(null);
   const [error, setError] = useState("");
@@ -234,6 +237,8 @@ export default function UploadPage() {
           regionId,
           fileName,
           rows,
+          syncMode,
+          listTag: listTag.trim() || undefined,
         }),
       });
 
@@ -418,6 +423,45 @@ export default function UploadPage() {
                 </select>
               </div>
             </div>
+            {/* Sync mode */}
+            <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={syncMode}
+                  onChange={(e) => setSyncMode(e.target.checked)}
+                  className="h-4 w-4 accent-green-600"
+                />
+                <div>
+                  <p className="text-sm font-medium">Sync inventory</p>
+                  <p className="text-xs text-muted-foreground">
+                    Remove this supplier&apos;s plants that are <em>not</em> in the uploaded file.
+                  </p>
+                </div>
+              </label>
+
+              {syncMode && (
+                <div className="pl-7 space-y-1">
+                  <Label htmlFor="listTag" className="text-xs">
+                    List tag <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <input
+                    id="listTag"
+                    type="text"
+                    placeholder="e.g. Shrubs, Trees, Perennials"
+                    value={listTag}
+                    onChange={(e) => setListTag(e.target.value)}
+                    className="h-8 w-full max-w-xs rounded-lg border border-input bg-card px-2.5 text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {listTag.trim()
+                      ? `Only "${listTag.trim()}" records for this supplier will be synced — other list tags are left untouched.`
+                      : "No tag: all existing records for this supplier will be synced."}
+                  </p>
+                </div>
+              )}
+            </div>
+
             {step === 1 && (
               <Button
                 onClick={() => setStep(2)}
@@ -595,13 +639,23 @@ export default function UploadPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className={`grid gap-4 ${syncMode ? "grid-cols-3" : "grid-cols-2"}`}>
               <div className="rounded-lg border p-4">
                 <p className="text-2xl font-bold text-green-600">
                   {result.created}
                 </p>
-                <p className="text-sm text-muted-foreground">Plants created</p>
+                <p className="text-sm text-muted-foreground">Plants added / updated</p>
               </div>
+              {syncMode && (
+                <div className="rounded-lg border p-4">
+                  <p className="text-2xl font-bold text-amber-600">
+                    {result.removed}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Removed{listTag.trim() ? ` (${listTag.trim()})` : ""}
+                  </p>
+                </div>
+              )}
               <div className="rounded-lg border p-4">
                 <p className="text-2xl font-bold text-red-600">
                   {result.errors}
