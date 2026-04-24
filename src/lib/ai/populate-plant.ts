@@ -21,7 +21,7 @@ export async function populatePlant(
 
   try {
     const message = await claude.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-haiku-4-5",
       max_tokens: 1500,
       system: POPULATE_SYSTEM_PROMPT,
       messages: [
@@ -63,7 +63,7 @@ export async function populatePlant(
         companionPlants: data.companionPlants || [],
         aiPopulated: true,
         aiPopulatedAt: new Date(),
-        aiModel: "claude-sonnet-4-6",
+        aiModel: "claude-haiku-4-5",
         aiConfidence: data.confidence || "medium",
       },
     });
