@@ -16,6 +16,7 @@ import {
 import { Plus } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { PopulateAllButton } from "@/components/admin/populate-all-button";
+import { PopulateImagesButton } from "@/components/admin/populate-images-button";
 import { DeleteConfirmButton } from "@/components/admin/delete-confirm-button";
 import { ClearUnpopulatedButton } from "@/components/admin/clear-unpopulated-button";
 import { DeleteAllPlantsButton } from "@/components/admin/delete-all-plants-button";
@@ -108,6 +109,14 @@ export default async function AdminPlantsPage({ searchParams }: Props) {
         })).map((p) => p.id)
       : plants.filter((p) => !p.aiPopulated).map((p) => p.id);
 
+  // Plants missing an image (for the Fetch Images button)
+  const noImagePlantIds = !query && !status
+    ? (await prisma.plant.findMany({
+        where: { imageUrl: null },
+        select: { id: true },
+      })).map((p) => p.id)
+    : plants.filter((p) => !p.imageUrl).map((p) => p.id);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -127,6 +136,9 @@ export default async function AdminPlantsPage({ searchParams }: Props) {
               />
               <PopulateAllButton pendingPlantIds={pendingPlantIds} />
             </>
+          )}
+          {noImagePlantIds.length > 0 && (
+            <PopulateImagesButton plantIds={noImagePlantIds} />
           )}
           <Link href="/admin/plants/new">
             <Button>
@@ -154,6 +166,7 @@ export default async function AdminPlantsPage({ searchParams }: Props) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">Image</TableHead>
               <TableHead>Common Name</TableHead>
               <TableHead>Botanical Name</TableHead>
               <TableHead>Type</TableHead>
@@ -173,6 +186,20 @@ export default async function AdminPlantsPage({ searchParams }: Props) {
             ) : (
               plants.map((plant) => (
                 <TableRow key={plant.id}>
+                  <TableCell>
+                    {plant.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={plant.imageUrl}
+                        alt={plant.commonName}
+                        className="w-10 h-10 rounded object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                        —
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">
                     {plant.commonName}
                   </TableCell>
